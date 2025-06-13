@@ -565,9 +565,9 @@ class Ryujinx : ObservableObject {
         
         args.append(contentsOf: ["--aspect-ratio", config.aspectRatio.rawValue])
         
-        // args.append(contentsOf: ["--system-timezone", TimeZone.current.identifier])
+        args.append(contentsOf: ["--system-timezone", TimeZone.current.identifier])
         
-        args.append(contentsOf: ["--system-time-offset", String(TimeZone.current.secondsFromGMT())])
+        // args.append(contentsOf: ["--system-time-offset", String(TimeZone.current.secondsFromGMT())])
 
         
         if config.nintendoinput {
