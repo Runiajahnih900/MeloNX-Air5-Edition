@@ -9,10 +9,10 @@ import MetalKit
 import UIKit
 
 class MeloMTKView: MTKView {
-
     private var activeTouches: [UITouch] = []
     private var ignoredTouches: Set<UITouch> = []
-    
+    private var touchIndexMap: [UITouch: Int] = [:]
+
     private let baseWidth: CGFloat = 1280
     private let baseHeight: CGFloat = 720
     private var aspectRatio: AspectRatio = .fixed16x9
@@ -84,83 +84,112 @@ class MeloMTKView: MTKView {
         return CGPoint(x: scaledX, y: scaledY)
     }
 
+    private func getNextAvailableIndex() -> Int {
+        for i in 0..<Int.max {
+            if !touchIndexMap.values.contains(i) {
+                return i
+            }
+        }
+        return 0
+    }
+
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesBegan(touches, with: event)
-        
+
         let disabled = UserDefaults.standard.bool(forKey: "disableTouch")
+        guard !disabled else { return }
         
         setAspectRatio(Ryujinx.shared.config?.aspectRatio ?? .fixed16x9)
-        
-        if !disabled {
-            for touch in touches {
-                let location = touch.location(in: self)
-                if scaleToTargetResolution(location) == nil {
-                    ignoredTouches.insert(touch)
-                    continue
-                }
-                
-                activeTouches.append(touch)
-                let index = activeTouches.firstIndex(of: touch)!
-                
-                let scaledLocation = scaleToTargetResolution(location)!
-                // // print("Touch began at: \(scaledLocation) and \(self.aspectRatio)")
-                touch_began(Float(scaledLocation.x), Float(scaledLocation.y), Int32(index))
+
+        for touch in touches {
+            let location = touch.location(in: self)
+            guard let scaledLocation = scaleToTargetResolution(location) else {
+                ignoredTouches.insert(touch)
+                continue
             }
+
+            let index = getNextAvailableIndex()
+            touchIndexMap[touch] = index
+            activeTouches.append(touch)
+            
+            touch_began(Float(scaledLocation.x), Float(scaledLocation.y), Int32(index))
         }
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesEnded(touches, with: event)
-        
+
         let disabled = UserDefaults.standard.bool(forKey: "disableTouch")
-        
-        setAspectRatio(Ryujinx.shared.config?.aspectRatio ?? .fixed16x9)
-        
-        if !disabled {
+        guard !disabled else {
             for touch in touches {
-                if ignoredTouches.contains(touch) {
-                    ignoredTouches.remove(touch)
-                    continue
-                }
-                
+                ignoredTouches.remove(touch)
                 if let index = activeTouches.firstIndex(of: touch) {
                     activeTouches.remove(at: index)
-                    
-                    // // print("Touch ended for index \(index)")
-                    touch_ended(Int32(index))
                 }
+                touchIndexMap.removeValue(forKey: touch)
+            }
+            return
+        }
+
+        for touch in touches {
+            if ignoredTouches.remove(touch) != nil {
+                continue
+            }
+
+            if let touchIndex = touchIndexMap[touch] {
+                touch_ended(Int32(touchIndex))
+                
+                if let arrayIndex = activeTouches.firstIndex(of: touch) {
+                    activeTouches.remove(at: arrayIndex)
+                }
+                touchIndexMap.removeValue(forKey: touch)
             }
         }
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesMoved(touches, with: event)
-        
+
         let disabled = UserDefaults.standard.bool(forKey: "disableTouch")
+        guard !disabled else { return }
         
         setAspectRatio(Ryujinx.shared.config?.aspectRatio ?? .fixed16x9)
-        
-        if !disabled {
-            for touch in touches {
-                if ignoredTouches.contains(touch) {
-                    continue
-                }
-                
-                let location = touch.location(in: self)
-                guard let scaledLocation = scaleToTargetResolution(location) else {
-                    if let index = activeTouches.firstIndex(of: touch) {
-                        activeTouches.remove(at: index)
-                        // // print("Touch left active area, removed index \(index)")
-                        touch_ended(Int32(index))
-                    }
-                    continue
-                }
-                
-                if let index = activeTouches.firstIndex(of: touch) {
-                    // // print("Touch moved to: \(scaledLocation)")
-                    touch_moved(Float(scaledLocation.x), Float(scaledLocation.y), Int32(index))
-                }
+
+        for touch in touches {
+            if ignoredTouches.contains(touch) {
+                continue
             }
+
+            guard let touchIndex = touchIndexMap[touch] else {
+                continue
+            }
+
+            let location = touch.location(in: self)
+            guard let scaledLocation = scaleToTargetResolution(location) else {
+                touch_ended(Int32(touchIndex))
+                
+                if let arrayIndex = activeTouches.firstIndex(of: touch) {
+                    activeTouches.remove(at: arrayIndex)
+                }
+                touchIndexMap.removeValue(forKey: touch)
+                ignoredTouches.insert(touch)
+                continue
+            }
+
+            touch_moved(Float(scaledLocation.x), Float(scaledLocation.y), Int32(touchIndex))
         }
     }
+
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        super.touchesCancelled(touches, with: event)
+        touchesEnded(touches, with: event)
+    }
+    
+
+    func resetTouchTracking() {
+        activeTouches.removeAll()
+        ignoredTouches.removeAll()
+        touchIndexMap.removeAll()
+    }
 }
+

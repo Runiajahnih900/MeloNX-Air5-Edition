@@ -188,14 +188,20 @@ namespace Ryujinx.Graphics.Vulkan
 
             var dsc = program.GetNewDescriptorSetCollection(setIndex, out var isNew).Get(cbs);
 
+            DescriptorSetTemplate template = program.Templates[setIndex];
+
+            DescriptorSetTemplateWriter tu = templateUpdater.Begin(template);
+
             if (!_isBuffer)
             {
-                dsc.UpdateImages(0, 0, GetImageInfos(_gd, cbs, dummyTexture), DescriptorType.StorageImage);
+                tu.Push(GetImageInfos(_gd, cbs, dummyTexture));
             }
             else
             {
-                dsc.UpdateBufferImages(0, 0, GetBufferViews(cbs), DescriptorType.StorageTexelBuffer);
+                tu.Push(GetBufferViews(cbs));
             }
+
+            templateUpdater.Commit(_gd, device, sets[0]);
 
             sets = dsc.GetSets();
 

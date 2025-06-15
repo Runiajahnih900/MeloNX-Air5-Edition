@@ -16,9 +16,11 @@
 #include <SDL2/SDL_syswm.h>
 #include <StosJIT/StosJIT-Swift.h>
 
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
 
 struct GameInfo {
     long FileSize;
@@ -40,6 +42,10 @@ struct DlcNcaList {
     unsigned int size;
     struct DlcNcaListItem* items;
 };
+
+typedef void (^SwiftCallback)(NSString *result);
+
+void RegisterCallback(NSString *identifier, SwiftCallback callback);
 
 extern struct GameInfo get_game_info(int, char*);
 

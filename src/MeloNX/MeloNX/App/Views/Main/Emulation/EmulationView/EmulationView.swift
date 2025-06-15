@@ -142,6 +142,15 @@ struct EmulationView: View {
                     // print(cool)
                 }
             }
+            
+            RegisterCallback("exit-emulation") { cool in
+                DispatchQueue.main.async {
+                    print(cool)
+                    startgame = nil
+                    stop_emulation()
+                    try? Ryujinx.shared.stop()
+                }
+            }
         }
         .onChange(of: scenePhase) { newPhase in
             // Detect when the app enters the background

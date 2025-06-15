@@ -1252,3 +1252,16 @@ extension View {
         }
     }
 }
+
+
+extension View {
+    @available(iOS, introduced: 14.0, deprecated: 19.0, message: "")
+    func glassEffect(_ style: Glass, in shape: some Shape) -> some View {
+        return self
+    }
+}
+
+@available(iOS, introduced: 14.0, deprecated: 19.0, message: "")
+struct Glass: Hashable {
+    static var regular = Glass()
+}

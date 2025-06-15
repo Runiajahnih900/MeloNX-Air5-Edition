@@ -11,6 +11,11 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletAE
             Data = data;
         }
 
+        public byte[] GetData()
+        {
+            return Data;
+        }
+
         [CommandCmif(0)]
         // Open() -> object<nn::am::service::IStorageAccessor>
         public ResultCode Open(ServiceCtx context)

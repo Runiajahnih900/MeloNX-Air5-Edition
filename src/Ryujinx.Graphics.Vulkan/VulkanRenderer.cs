@@ -647,6 +647,15 @@ namespace Ryujinx.Graphics.Vulkan
                 Format.Bc7Srgb,
                 Format.Bc7Unorm);
 
+            if (!OperatingSystem.IsIOSVersionAtLeast(16, 4))
+            {
+                // On iOS 16.4 and later, these formats are supported.
+                // On earlier versions, it is not supported.
+                supportsBc123CompressionFormat = false;
+                supportsBc45CompressionFormat = false;
+                supportsBc67CompressionFormat = false;
+            }
+
             bool supportsEtc2CompressionFormat = FormatCapabilities.OptimalFormatsSupport(compressedFormatFeatureFlags,
                 Format.Etc2RgbaSrgb,
                 Format.Etc2RgbaUnorm,
@@ -714,7 +723,7 @@ namespace Ryujinx.Graphics.Vulkan
 
             SystemMemoryType memoryType;
 
-            if (IsSharedMemory)
+            if (IsSharedMemory && !IsMoltenVk)
             {
                 memoryType = SystemMemoryType.UnifiedMemory;
             }

@@ -535,9 +535,9 @@ class Ryujinx : ObservableObject {
         
         args.append(contentsOf: ["--memory-manager-mode", config.memoryManagerMode])
         
-        // args.append(contentsOf: ["--exclusive-fullscreen", String(true)])
-        // args.append(contentsOf: ["--exclusive-fullscreen-width", "\(Int(UIScreen.main.bounds.width))"])
-        // args.append(contentsOf: ["--exclusive-fullscreen-height", "\(Int(UIScreen.main.bounds.height))"])
+        args.append(contentsOf: ["--exclusive-fullscreen", String(true)])
+        args.append(contentsOf: ["--exclusive-fullscreen-width", "\(Int(UIScreen.main.bounds.width))"])
+        args.append(contentsOf: ["--exclusive-fullscreen-height", "\(Int(UIScreen.main.bounds.height))"])
         // We don't need this. Ryujinx should handle it fine :3
         // this also causes crashes in some games :3
         

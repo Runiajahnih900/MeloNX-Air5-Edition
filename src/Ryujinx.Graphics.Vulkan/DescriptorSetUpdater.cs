@@ -703,10 +703,11 @@ namespace Ryujinx.Graphics.Vulkan
                 {
                     try
                     {
-                        UpdateAndBindTexturesWithoutTemplate(cbs, program, pbp);
-                    } catch (Exception e)
-                    {
                         UpdateAndBind(cbs, program, PipelineBase.TextureSetIndex, pbp);
+                    }
+                    catch (Exception e)
+                    {
+                        UpdateAndBindTexturesWithoutTemplate(cbs, program, pbp);
                     }
                 }
                 else
@@ -763,7 +764,7 @@ namespace Ryujinx.Graphics.Vulkan
             if (info.Buffer.Handle == 0)
             {
                 info.Buffer = dummyBuffer?.Get(cbs).Value ?? default;
-                info.Offset = 0;
+                // info.Offset = 0;
                 info.Range = Vk.WholeSize;
             }
 
@@ -797,6 +798,13 @@ namespace Ryujinx.Graphics.Vulkan
                     Initialize(cbs, setIndex, dsc);
                 }
             }
+
+            var dummyImageInfo = new DescriptorImageInfo
+            {
+                ImageView = _dummyTexture.GetImageView().Get(cbs).Value,
+                Sampler = _dummySampler.GetSampler().Get(cbs).Value,
+                ImageLayout = ImageLayout.General
+            };
 
             DescriptorSetTemplate template = program.Templates[setIndex];
 
@@ -871,12 +879,12 @@ namespace Ryujinx.Graphics.Vulkan
 
                                 if (texture.ImageView.Handle == 0)
                                 {
-                                    texture.ImageView = _dummyTexture.GetImageView().Get(cbs).Value;
+                                    texture.ImageView = dummyImageInfo.ImageView;
                                 }
 
                                 if (texture.Sampler.Handle == 0)
                                 {
-                                    texture.Sampler = _dummySampler.GetSampler().Get(cbs).Value;
+                                    texture.Sampler = dummyImageInfo.Sampler;
                                 }
                             }
 
@@ -916,7 +924,7 @@ namespace Ryujinx.Graphics.Vulkan
 
                             for (int i = 0; i < count; i++)
                             {
-                                images[i].ImageView = _imageRefs[binding + i].ImageView?.Get(cbs).Value ?? default;
+                                images[i].ImageView = _imageRefs[binding + i].ImageView?.Get(cbs).Value ?? dummyImageInfo.ImageView;
                             }
 
                             tu.Push<DescriptorImageInfo>(images[..count]);

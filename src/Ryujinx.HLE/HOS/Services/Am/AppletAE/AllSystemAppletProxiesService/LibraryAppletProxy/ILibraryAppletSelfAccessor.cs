@@ -1,10 +1,14 @@
 using Ryujinx.Common;
+using System.Runtime.InteropServices;
 using System;
 
 namespace Ryujinx.HLE.HOS.Services.Am.AppletAE.AllSystemAppletProxiesService.LibraryAppletProxy
 {
     class ILibraryAppletSelfAccessor : IpcService
     {
+        [DllImport("RyujinxHelper.framework/RyujinxHelper", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void TriggerCallback(string cIdentifier);
+
         private readonly AppletStandalone _appletStandalone = new();
 
         public ILibraryAppletSelfAccessor(ServiceCtx context)
@@ -44,6 +48,14 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletAE.AllSystemAppletProxiesService.Lib
 
             return ResultCode.Success;
         }
+
+        [CommandCmif(1)]
+        public ResultCode PushOutData(ServiceCtx context)
+        {
+            TriggerCallback("exit-emulation");
+            return ResultCode.Success;
+        }
+
 
         [CommandCmif(11)]
         // GetLibraryAppletInfo() -> nn::am::service::LibraryAppletInfo

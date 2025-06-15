@@ -159,8 +159,8 @@ namespace Ryujinx.Graphics.Vulkan
                 }
 
                 texture.ImageLayout = ImageLayout.General;
-                texture.ImageView = refs.View?.Get(cbs).Value ?? default;
-                texture.Sampler = refs.Sampler?.Get(cbs).Value ?? default;
+                texture.ImageView = refs.View?.Get(cbs).Value ?? dummyTexture.GetImageView().Get(cbs).Value;
+                texture.Sampler = refs.Sampler?.Get(cbs).Value ?? dummySampler.GetSampler().Get(cbs).Value;
 
                 if (texture.ImageView.Handle == 0)
                 {
