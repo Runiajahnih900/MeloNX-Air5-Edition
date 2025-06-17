@@ -649,8 +649,7 @@ namespace Ryujinx.Graphics.Vulkan
 
             if (!OperatingSystem.IsIOSVersionAtLeast(16, 4))
             {
-                // On iOS 16.4 and later, these formats are supported.
-                // On earlier versions, it is not supported.
+                // On iOS 16.3.1 and earlier, these formats are not supported.
                 supportsBc123CompressionFormat = false;
                 supportsBc45CompressionFormat = false;
                 supportsBc67CompressionFormat = false;

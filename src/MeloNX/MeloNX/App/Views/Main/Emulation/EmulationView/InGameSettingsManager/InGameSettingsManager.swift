@@ -35,7 +35,6 @@ class InGameSettingsManager: PerGameSettingsManaging {
             Ryujinx.shared.config = config[currentgame.titleId]
             let args = Ryujinx.shared.buildCommandLineArgs(from: config[currentgame.titleId] ?? Ryujinx.Arguments())
             
-            // Convert Arguments to ones that Ryujinx can Read
             let cArgs = args.map { strdup($0) }
             defer { cArgs.forEach { free($0) } }
             var argvPtrs = cArgs

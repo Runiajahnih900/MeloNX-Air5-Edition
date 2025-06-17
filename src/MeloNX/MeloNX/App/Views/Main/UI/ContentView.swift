@@ -81,8 +81,6 @@ struct ContentView: View {
         
         _settings = State(initialValue: defaultSettings)
         
-        // print(SDL_CONTROLLER_BUTTON_LEFTSTICK.rawValue)
-        
         initializeSDL()
     }
     
@@ -132,7 +130,6 @@ struct ContentView: View {
                 JITPopover() {
                     ryujinx.jitenabled = false
                 }
-                // .interactiveDismissDisabled()
             }
     }
     
@@ -153,10 +150,7 @@ struct ContentView: View {
                 refreshControllersList()
             }
             
-            
             UserDefaults.standard.set(false, forKey: "lockInApp")
-            
-            // print(MTLHud.shared.isEnabled)
             
             initControllerObservers()
             
@@ -165,7 +159,6 @@ struct ContentView: View {
             ))
             
             refreshControllersList()
-            
             
             ryujinx.addGames()
             
@@ -287,7 +280,6 @@ struct ContentView: View {
             queue: .main
         ) { notification in
             if let controller = notification.object as? GCController {
-                // print("Controller connected: \(controller.productCategory)")
                 nativeControllers[controller] = .init(controller)
                 refreshControllersList()
             }
@@ -299,7 +291,8 @@ struct ContentView: View {
             queue: .main
         ) { notification in
             if let controller = notification.object as? GCController {
-                // print("Controller disconnected: \(controller.productCategory)")
+                currentControllers = []
+                controllersList = []
                 nativeControllers[controller]?.cleanup()
                 nativeControllers[controller] = nil
                 refreshControllersList()
@@ -316,6 +309,9 @@ struct ContentView: View {
     }
     
     private func refreshControllersList() {
+        currentControllers = []
+        controllersList = []
+        
         controllersList = ryujinx.getConnectedControllers()
         
         if let onscreen = controllersList.first(where: { $0.name == ryujinx.virtualController.controllername }) {
@@ -324,8 +320,6 @@ struct ContentView: View {
         
         controllersList.removeAll(where: { $0.id == "0" || (!$0.name.starts(with: "GC - ") && $0 != onscreencontroller) })
         controllersList.mutableForEach { $0.name = $0.name.replacingOccurrences(of: "GC - ", with: "") }
-
-        currentControllers = []
         
         if controllersList.count == 1 {
             currentControllers.append(controllersList[0])
