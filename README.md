@@ -28,6 +28,10 @@ MeloNX works on iPhone XS/XR and later and iPad 8th Gen and later. Check out the
 - Recommended Device: iPhone 15 Pro or newer.
 - Low-End Recommended Device: iPhone 13 Pro. 
 
+## Discord Server
+
+We have a discord server!
+  - https://discord.gg/melonx
 
 ## How to install
 
@@ -141,12 +145,12 @@ If having Issues installing firmware (Make sure your keys are installed first)
 
 - **GPU**
 
-  The GPU emulator emulates the Switch's Maxwell GPU using Metal (via MoltenVK) APIs through a custom build of OpenTK or Silk.NET respectively.
+  The GPU emulator emulates the Switch's Maxwell GPU using Metal (via MoltenVK) APIs through a custom build of Silk.NET.
 
 - **Input**
 
-  We currently have support for keyboard, touch input, JoyCon input support, and nearly all controllers.
-  Motion controls are natively supported in most cases.
+  We currently have support for keyboard, touch input, JoyCon input support, and nearly all MFI controllers.
+  Motion controls are natively supported in most cases, however JoyCons do not have motion support doe to an iOS limitation.
   
 - **DLC & Modifications**
 
@@ -157,14 +161,13 @@ If having Issues installing firmware (Make sure your keys are installed first)
 
   The emulator has settings for enabling or disabling some logging, remapping controllers, and more.
 
-## License
+# License
 
-This software is licensed under the terms of the [MeloNX license (Based on MIT License)](LICENSE.txt).
+This software is licensed under the terms of the [MeloNX license](LICENSE.txt).
 This project makes use of code authored by the libvpx project, licensed under BSD and the ffmpeg project, licensed under LGPLv3.
 See [LICENSE.txt](LICENSE.txt) and [THIRDPARTY.md](distribution/legal/THIRDPARTY.md) for more details.
 
-## Credits
-
+# Credits
 - [Ryujinx](https://github.com/ryujinx-mirror/ryujinx) is used for the base of this emulator. (link is to ryujinx-mirror since they were supportive)
 - [LibHac](https://github.com/Thealexbarney/LibHac) is used for our file-system.
 - [AmiiboAPI](https://www.amiiboapi.com) is used in our Amiibo emulation.

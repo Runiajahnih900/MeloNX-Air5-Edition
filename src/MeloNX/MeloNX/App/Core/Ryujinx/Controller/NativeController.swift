@@ -12,8 +12,7 @@ class NativeController: Hashable, BaseController {
     private var instanceID: SDL_JoystickID = -1
     private var controller: OpaquePointer?
     private var nativeController: GCController
-    private var controllerMotionProvider: ControllerMotionProvider?
-    private var deviceMotionProvider: DeviceMotionProvider?
+    private var controllerMotionProvider: DSUMotionProvider?
     
     private let controllerHaptics: CHHapticEngine?
     private let rumbleController: RumbleController?
@@ -22,21 +21,21 @@ class NativeController: Hashable, BaseController {
 
     init(_ controller: GCController) {
         nativeController = controller
-        controllerHaptics = nativeController.haptics?.createEngine(withLocality: .default)
+        var ncontrollerHaptics = nativeController.haptics?.createEngine(withLocality: .default)
+        
+        let vendorName = nativeController.vendorName ?? "Unknown"
+        var usesdeviceHaptics = (ncontrollerHaptics == nil || vendorName.lowercased().hasSuffix("backbone") || vendorName.lowercased() == "backbone one")
+        controllerHaptics = usesdeviceHaptics ? ncontrollerHaptics : try? CHHapticEngine()
         
         // Make sure the haptic engine exists before attempting to start it or initialize the controller.
         if let hapticsEngine = controllerHaptics {
             do {
                 try hapticsEngine.start()
-                rumbleController = RumbleController(engine: hapticsEngine, rumbleMultiplier: 2.5)
-                
-                // print("CHHapticEngine started and RumbleController initialized.")
+                rumbleController = RumbleController(engine: hapticsEngine, rumbleMultiplier: 1.2)
             } catch {
-                // print("Error starting CHHapticEngine: \(error.localizedDescription)")
                 rumbleController = nil
             }
         } else {
-            // print("CHHapticEngine is nil. Cannot initialize RumbleController.")
             rumbleController = nil
         }
         setupHandheldController()
@@ -49,27 +48,17 @@ class NativeController: Hashable, BaseController {
     internal func tryRegisterMotion(slot: UInt8) {
         // Setup Motion
         let dsuServer = DSUServer.shared
+        let vendorName = nativeController.vendorName ?? "Unknown"
+        var usesdevicemotion = (vendorName.lowercased() == "Joy-Con (l/R)".lowercased() || vendorName.lowercased().hasSuffix("backbone") || vendorName.lowercased() == "backbone one")
         
-        if nativeController.vendorName?.lowercased() == "Joy-Con (l/R)".lowercased() {
-            deviceMotionProvider = DeviceMotionProvider(slot: slot)
-            if let provider = deviceMotionProvider {
-                dsuServer.register(provider)
-            }
-        } else {
-            controllerMotionProvider = ControllerMotionProvider(controller: nativeController, slot: slot)
-            if let provider = controllerMotionProvider {
-                dsuServer.register(provider)
-            }
+        controllerMotionProvider = usesdevicemotion ? DeviceMotionProvider(slot: slot) : ControllerMotionProvider(controller: nativeController, slot: slot)
+        
+        if let provider = controllerMotionProvider {
+            dsuServer.register(provider)
         }
     }
     
-    internal func tryGetMotionProvider() -> DSUMotionProvider? {
-        if nativeController.vendorName == "Joy-Con (l/R)" {
-            return deviceMotionProvider
-        } else {
-            return controllerMotionProvider
-        }
-    }
+    internal func tryGetMotionProvider() -> DSUMotionProvider? { return controllerMotionProvider }
 
     private func setupHandheldController() {
         if SDL_WasInit(Uint32(SDL_INIT_GAMECONTROLLER)) == 0 {
@@ -94,38 +83,39 @@ class NativeController: Hashable, BaseController {
                 },
                 SetPlayerIndex: { userdata, playerIndex in
                     // print("Player index set to \(playerIndex)")
+                    guard let userdata, let player = GCControllerPlayerIndex(rawValue: Int(playerIndex)) else { return }
+                    let _self = Unmanaged<NativeController>.fromOpaque(userdata).takeUnretainedValue()
+                    _self.nativeController.playerIndex = player
                 },
                 Rumble: { userdata, lowFreq, highFreq in
-                    // print("Rumble with \(lowFreq), \(highFreq)")
                     guard let userdata else { return 0 }
                     let _self = Unmanaged<NativeController>.fromOpaque(userdata).takeUnretainedValue()
                     _self.rumbleController?.rumble(lowFreq: Float(lowFreq), highFreq: Float(highFreq))
                     return 0
                 },
                 RumbleTriggers: { userdata, leftRumble, rightRumble in
-                    // print("Trigger rumble with \(leftRumble), \(rightRumble)")
                     return 0
                 },
                 SetLED: { userdata, red, green, blue in
-                    // print("Set LED to RGB(\(red), \(green), \(blue))")
+                    guard let userdata else { return 0 }
+                    let _self = Unmanaged<NativeController>.fromOpaque(userdata).takeUnretainedValue()
+                    guard let light = _self.nativeController.light else { return 0 }
+                    light.color = .init(red: Float(red), green: Float(green), blue: Float(blue))
                     return 0
                 },
                 SendEffect: { userdata, data, size in
-                    // print("Effect sent with size \(size)")
                     return 0
                 }
             )
 
-        instanceID = SDL_JoystickAttachVirtualEx(&joystickDesc)// SDL_JoystickAttachVirtual(SDL_JoystickType(SDL_JOYSTICK_TYPE_GAMECONTROLLER.rawValue), 6, 15, 1)
+        instanceID = SDL_JoystickAttachVirtualEx(&joystickDesc)
         if instanceID < 0 {
-            // print("Failed to create virtual joystick: \(String(cString: SDL_GetError()))")
             return
         }
 
         controller = SDL_GameControllerOpen(Int32(instanceID))
 
         if controller == nil {
-            // print("Failed to create virtual controller: \(String(cString: SDL_GetError()))")
             return
         }
 
@@ -214,7 +204,6 @@ class NativeController: Hashable, BaseController {
     func setButtonState(_ state: Uint8, for button: VirtualControllerButton) {
         guard controller != nil else { return }
 
-//        // print("Button: \(button.rawValue) {state: \(state)}")
         if (button == .leftTrigger || button == .rightTrigger) && (state == 1 || state == 0) {
             let axis: SDL_GameControllerAxis = (button == .leftTrigger) ? SDL_CONTROLLER_AXIS_TRIGGERLEFT : SDL_CONTROLLER_AXIS_TRIGGERRIGHT
             let value: Int = (state == 1) ? 32767 : 0

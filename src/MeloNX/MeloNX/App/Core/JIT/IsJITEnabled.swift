@@ -62,7 +62,6 @@ func allocateTest() -> Bool {
     
     memcpy(jitMemory, code, code.count)
     
-    
     if mprotect(jitMemory, pageSize, PROT_READ | PROT_EXEC) != 0 {
         return false
     }
