@@ -12,21 +12,26 @@
 
 <p align="center">
        MeloNX is an iOS Nintendo Switch emulator based on Ryujinx, written primarily in C#. Designed to bring accurate performance and a user-friendly interface to iOS, MeloNX makes Switch games accessible on Apple devices.
-       Developed from the ground up, MeloNX is open-source and available on Github under the <a href="https://github.com/MeloNX-Emu/MeloNX/blob/master/LICENSE.txt" target="_blank">MeloNX license (Based on MIT)</a>. <br 
+       Developed from the ground up, MeloNX is open-source and available on Github under the <a href="https://github.com/MeloNX-Emu/MeloNX/blob/master/LICENSE.txt" target="_blank">MeloNX license</a>. <br 
 </p>
 
 # Compatibility
 
-MeloNX works on iPhone XS/XR and later and iPad 8th Gen and later. Check out the Compatibility on the <a href="https://melonx.org/compatibility/" target="_blank">website</a>.
+MeloNX works on iPhone 11 (XS/XR may work but can have issues) and later and iPad 8th Gen and later. Check out the Compatibility on the <a href="https://melonx.org/compatibility/" target="_blank">website</a>.
+
 
 # Usage
 
+## Paid Certificates are **NOT** supported and we will not give any help when using them.
+
 ## FAQ
-- MeloNX is made for iOS 17+, on iOS 15 - 16 MeloNX can be installed but may have issues or not work at all.
 - MeloNX cannot be Sideloaded normally and requires the use of the following Installation Guide(s).
+- [SideStore](https://sidestore.io/) is recommended for Sideloading MeloNX
+- Apple ID with free developer account
 - MeloNX requires JIT
 - Recommended Device: iPhone 15 Pro or newer.
 - Low-End Recommended Device: iPhone 13 Pro. 
+
 
 ## Discord Server
 
@@ -37,80 +42,81 @@ We have a discord server!
 
 ### Paid Developer Account  
 
-1. **Sideload the App**  
-   - Use any sideloading tool that supports Apple IDs.  
+#### 1. Sideload MeloNX
+Download and install MeloNX using your preferred Apple ID sideloader:
+  - [Download MeloNX from Releases](https://git.743378673.xyz/MeloNX/MeloNX/releases)
 
-2. **Enable Entitlements**  
+#### 2. Enable Memory Entitlement
    - Visit [Apple Developer Identifiers](https://developer.apple.com/account/resources/identifiers).  
    - Locate **MeloNX** and enable the following entitlements:  
      - `Increased Memory Limit`  
      - `Increased Debugging Memory Limit`  
 
-3. **Reinstall the App**  
-   - Delete the existing installation.  
-   - Sideload the app again with the updated entitlements.  
+#### 3. Reinstall MeloNX
+  - Delete existing MeloNX installation
+  - Sideload MeloNX again
+  - Verify **Increased Memory Limit** is enabled in app
+  
+#### 4. Setup Files
+  - Add Encryption Keys and Firmware using the file picker inside MeloNX
+    - If having Issues installing firmware:
+      - You can Install firmware and keys from **Ryujinx Desktop** (or forks).  
+      - Copy the **bis** and **system** folders  
 
-4. **Enable JIT**  
-   - Use your preferred method to enable Just-In-Time (JIT) compilation.  
-   - We reccomend using [StikDebug](https://apps.apple.com/us/app/stikdebug/id6744045754)
+#### 5. Enable JIT
+  - Enable JIT using your preferred method. We recommend [StikDebug](https://apps.apple.com/us/app/stikdebug/id6744045754).
 
-5. **Add Necessary Files**  
 
-If having Issues installing firmware (Make sure your Keys are installed first)
-   - If needed, install firmware and keys from **Ryujinx Desktop** (or forks).  
-   - Copy the **bis** and **system** folders  
    
-### Free Developer Account (Experimental)
+### Free Developer Account
 
-1. **Sideload MeloNX**  
-   - Use [SideStore](https://sidestore.io/) or [AltStore](https://altstore.io/) (**NOT** AltStore PAL).  
+***The Entitlement App is **NOT** needed for AltStore Classic***
+  - You may skip Step 2 and Step 3
 
-2. **Sideload the Entitlement App**  
-   - Install [this app](https://github.com/hugeBlack/GetMoreRam/releases/download/nightly/Entitlement.ipa) using [SideStore](https://sidestore.io/) or [AltStore](https://altstore.io/) (**NOT** AltStore PAL).  
+#### 1. Sideload Applications
+Download and install both apps using your preferred sideloader:
+  - **MeloNX**: [Download from Releases](https://git.743378673.xyz/MeloNX/MeloNX/releases)
+  - **Entitlement App**: [Download IPA](https://github.com/hugeBlack/GetMoreRam/releases/download/nightly/Entitlement.ipa)
 
-3. **Sign In to Your Account**  
-   - Open **Settings** in the entitlement app and sign in with your Apple ID.  
+#### 2. Enable Memory Entitlement
+  - Open the **Entitlement app** > **Settings**
+  - Sign in with your Apple ID
+  - Go to **App IDs** > tap **Refresh**
+  - Select **MeloNX** (e.g., "com.stossy11.MeloNX.XXXXXX")
+  - Tap **Add Increased Memory Limit**
 
-4. **Refresh App IDs**  
-   - Navigate to the **App IDs** page.  
-   - Tap **Refresh** to update the list.  
+#### 3. Reinstall MeloNX
+  - Delete existing MeloNX installation
+  - Sideload MeloNX again
+  - Verify **Increased Memory Limit** is enabled in app
 
-5. **Enable Increased Memory Limit**  
-   - Select **MeloNX** (should be like "com.stossy11.MeloNX" or some variation) from the list.  
-   - Tap **Add Increased Memory Limit**.  
+#### 4. Setup Files
+  - Add Encryption Keys and Firmware using the file picker inside MeloNX
+    - If having Issues installing firmware:
+      - You can Install firmware and keys from **Ryujinx Desktop** (or forks).  
+      - Copy the **bis** and **system** folders  
 
-6. **Reinstall MeloNX**  
-   - Delete the existing installation.  
-   - Sideload the app again using SideStore or AltStore.  
-
-7. **Verify Increased Memory Limit**  
-   - Open MeloNX and check if the **Increased Memory Limit** is enabled.  
-
-8. **Add Necessary Files**  
-
-If having Issues installing firmware (Make sure your keys are installed first)
-   - If needed, install firmware and keys from **Ryujinx Desktop** (or forks).  
-   - Copy the **bis** and **system** folders  
-   
-9. **Enable JIT**  
-   - Use your preferred method to enable Just-In-Time (JIT) compilation. 
-   - We recommend using [StikDebug](https://apps.apple.com/us/app/stikdebug/id6744045754)
-   
+#### 5. Enable JIT
+  - Enable JIT using your preferred method. We recommend [StikDebug](https://apps.apple.com/us/app/stikdebug/id6744045754).
 
 ### TrollStore
 As Said in FAQ:
 > MeloNX is made for iOS 17+, on iOS 15 - 16 MeloNX can be installed but may have issues or not work at all.
 
-1. **Install MeloNX with TrollStore**
+#### 1. Install MeloNX 
+  - Use TrollStore to install MeloNX.
 
-2. **Add Necessary Files** 
+#### 2. Setup Files
+  - Add Encryption Keys and Firmware using the file picker inside MeloNX
+    - If having Issues installing firmware:
+      - You can Install firmware and keys from **Ryujinx Desktop** (or forks).  
+      - Copy the **bis** and **system** folders  
 
-3. **Enable TrollStore JIT**
-   - MeloNX includes automatic JIT using the TrollStore URL Scheme
-   - Open MeloNX Settings
-   - Scroll down and enable the "TrollStore JIT" toggle
+
+#### 2. Enable TrollStore JIT
+   - Open **Settings** inside **MeloNX**
+   - Under **Misc**, scroll down and enable the **"TrollStore" toggle**
    - Profit
-
 
 ### Free Developer Account (Xcode)
 
