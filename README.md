@@ -74,7 +74,7 @@ Download and install MeloNX using your preferred Apple ID sideloader:
   - You may skip Step 2 and Step 3
 
 #### 1. Sideload Applications
-Download and install both apps using your preferred sideloader:
+Download and install both apps using your preferred **APPLE ID** sideloader:
   - **MeloNX**: [Download from Releases](https://git.743378673.xyz/MeloNX/MeloNX/releases)
   - **Entitlement App**: [Download IPA](https://github.com/hugeBlack/GetMoreRam/releases/download/nightly/Entitlement.ipa)
 
