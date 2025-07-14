@@ -14,12 +14,21 @@ struct PerformanceOverlayView: View  {
     
     var body: some View {
         VStack {
-            Text("\(fpsmonitor.formatFPS())")
-                .foregroundStyle(.white)
-                .stroke(color: .black, width: 2)
-            Text(memorymonitor.formatMemorySize(memorymonitor.memoryUsage))
-                .foregroundStyle(.white)
-                .stroke(color: .black, width: 2)
+            if ProcessInfo.processInfo.isLowPowerModeEnabled {
+                Text("\(fpsmonitor.formatFPS())")
+                    .foregroundStyle(.white)
+                    .stroke(color: .orange, width: 2)
+                Text(memorymonitor.formatMemorySize(memorymonitor.memoryUsage))
+                    .foregroundStyle(.white)
+                    .stroke(color: .orange, width: 2)
+            } else {
+                Text("\(fpsmonitor.formatFPS())")
+                    .foregroundStyle(.white)
+                    .stroke(color: .black, width: 2)
+                Text(memorymonitor.formatMemorySize(memorymonitor.memoryUsage))
+                    .foregroundStyle(.white)
+                    .stroke(color: .black, width: 2)
+            }
         }
     }
 }

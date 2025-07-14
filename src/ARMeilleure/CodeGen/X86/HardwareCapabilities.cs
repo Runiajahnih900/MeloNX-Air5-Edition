@@ -47,13 +47,13 @@ namespace ARMeilleure.CodeGen.X86
                 0xc3, // ret
             };
 
-            using MemoryBlock memGetXcr0 = new((ulong)asmGetXcr0.Length);
+            using MemoryBlock memGetXcr0 = new((ulong)asmGetXcr0.Length, MemoryAllocationFlags.DualMapping);
 
             memGetXcr0.Write(0, asmGetXcr0);
 
             memGetXcr0.Reprotect(0, (ulong)asmGetXcr0.Length, MemoryPermission.ReadAndExecute);
 
-            var fGetXcr0 = Marshal.GetDelegateForFunctionPointer<GetXcr0>(memGetXcr0.Pointer);
+            var fGetXcr0 = Marshal.GetDelegateForFunctionPointer<GetXcr0>(memGetXcr0.RxPointer);
 
             return fGetXcr0();
         }

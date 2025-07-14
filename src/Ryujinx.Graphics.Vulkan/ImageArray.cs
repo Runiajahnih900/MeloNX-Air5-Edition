@@ -186,8 +186,6 @@ namespace Ryujinx.Graphics.Vulkan
                 return sets;
             }
 
-            var dsc = program.GetNewDescriptorSetCollection(setIndex, out var isNew).Get(cbs);
-
             DescriptorSetTemplate template = program.Templates[setIndex];
 
             DescriptorSetTemplateWriter tu = templateUpdater.Begin(template);
@@ -202,8 +200,6 @@ namespace Ryujinx.Graphics.Vulkan
             }
 
             templateUpdater.Commit(_gd, device, sets[0]);
-
-            sets = dsc.GetSets();
 
             return sets;
         }

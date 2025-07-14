@@ -10,22 +10,23 @@ import SwiftUI
 
 struct Joystick: View {
     @AppStorage("On-ScreenControllerScale") var controllerScale: Double = 1.0
-    
+    @State var right = true
     @Binding var position: CGPoint
     @State var joystickSize: CGFloat
     var boundarySize: CGFloat
     
     @State private var offset: CGSize = .zero
     @Binding var showBackground: Bool
+    @State var joystickSmallSize = false
     
     let sensitivity: CGFloat = 1.2
     
-
     var dragGesture: some Gesture {
         DragGesture()
             .onChanged { value in
                 withAnimation(.easeIn) {
                     showBackground = true
+                    joystickSmallSize = true
                 }
                 
                 let translation = value.translation
@@ -44,14 +45,26 @@ struct Joystick: View {
                     x: max(-1, min(1, (offset.width / extendedRadius) * sensitivity)),
                     y: max(-1, min(1, (offset.height / extendedRadius) * sensitivity))
                 )
+                
+                setPos()
             }
             .onEnded { _ in
                 offset = .zero
                 position = .zero
+                setPos()
                 withAnimation(.easeOut) {
                     showBackground = false
+                    joystickSmallSize = false
                 }
             }
+    }
+    
+    func setPos() {
+        if right {
+            Ryujinx.shared.virtualController.thumbstickMoved(.right, x: position.x, y: position.y)
+        } else {
+            Ryujinx.shared.virtualController.thumbstickMoved(.left, x: position.x, y: position.y)
+        }
     }
     
     var body: some View {
@@ -82,7 +95,7 @@ struct Joystick: View {
                 .scaleEffect(controllerScale)
         }
         .frame(width: boundarySize, height: boundarySize)
-        .onChange(of: showBackground) { newValue in
+        .onChange(of: joystickSmallSize) { newValue in
             if newValue {
                 joystickSize *= 1.4
             } else {

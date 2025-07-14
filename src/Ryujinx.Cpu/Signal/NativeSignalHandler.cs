@@ -127,11 +127,12 @@ namespace Ryujinx.Cpu.Signal
 
             ulong codeSizeAligned = BitUtils.AlignUp((ulong)code.Length, MemoryBlock.GetPageSize());
 
-            _codeBlock = new MemoryBlock(codeSizeAligned);
+            string dualMapped = Environment.GetEnvironmentVariable("DUAL_MAPPED_JIT");
+            _codeBlock = new MemoryBlock(codeSizeAligned, (dualMapped == "1") ? MemoryAllocationFlags.DualMapping : MemoryAllocationFlags.None);
             _codeBlock.Write(0, code);
             _codeBlock.Reprotect(0, codeSizeAligned, MemoryPermission.ReadAndExecute);
 
-            return _codeBlock.Pointer;
+            return _codeBlock.RxPointer;
         }
 
         private static unsafe ref SignalHandlerConfig GetConfigRef()

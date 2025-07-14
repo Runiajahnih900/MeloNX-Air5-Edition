@@ -402,9 +402,7 @@ namespace Ryujinx.Graphics.Vulkan
                 properties.Limits.FramebufferDepthSampleCounts &
                 properties.Limits.FramebufferStencilSampleCounts;
 
-            bool isDynamicStateSupported = OperatingSystem.IsIOS()
-                ? OperatingSystem.IsIOSVersionAtLeast(17) && _physicalDevice.IsDeviceExtensionPresent(ExtExtendedDynamicState.ExtensionName)
-                : _physicalDevice.IsDeviceExtensionPresent(ExtExtendedDynamicState.ExtensionName);
+            bool isDynamicStateSupported = OperatingSystem.IsIOSVersionAtLeast(17) && _physicalDevice.IsDeviceExtensionPresent(ExtExtendedDynamicState.ExtensionName);
 
             Capabilities = new HardwareCapabilities(
                 _physicalDevice.IsDeviceExtensionPresent("VK_EXT_index_type_uint8"),
@@ -422,8 +420,8 @@ namespace Ryujinx.Graphics.Vulkan
                 features2.Features.ShaderStorageImageMultisample,
                 _physicalDevice.IsDeviceExtensionPresent(ExtConditionalRendering.ExtensionName),
                 isDynamicStateSupported,
-                features2.Features.MultiViewport && !IsMoltenVk, // Workaround for AMD on MoltenVK issue
-                !IsMoltenVk ? featuresRobustness2.NullDescriptor : false,
+                features2.Features.MultiViewport, // && !IsMoltenVk, // Workaround for AMD on MoltenVK issue
+                featuresRobustness2.NullDescriptor && !IsMoltenVk,
                 supportsPushDescriptors && !IsMoltenVk,
                 propertiesPushDescriptor.MaxPushDescriptors,
                 featuresPrimitiveTopologyListRestart.PrimitiveTopologyListRestart,
@@ -722,7 +720,7 @@ namespace Ryujinx.Graphics.Vulkan
 
             SystemMemoryType memoryType;
 
-            if (IsSharedMemory && !IsMoltenVk)
+            if (IsSharedMemory)
             {
                 memoryType = SystemMemoryType.UnifiedMemory;
             }
@@ -784,10 +782,10 @@ namespace Ryujinx.Graphics.Vulkan
                 imageSetIndex: PipelineBase.ImageSetIndex,
                 extraSetBaseIndex: PipelineBase.DescriptorSetLayouts,
                 maximumExtraSets: Math.Max(0, (int)limits.MaxBoundDescriptorSets - PipelineBase.DescriptorSetLayouts),
-                maximumUniformBuffersPerStage: Constants.MaxUniformBuffersPerStage,
-                maximumStorageBuffersPerStage: Constants.MaxStorageBuffersPerStage,
-                maximumTexturesPerStage: Constants.MaxTexturesPerStage,
-                maximumImagesPerStage: Constants.MaxImagesPerStage,
+                maximumUniformBuffersPerStage: (uint)Constants.MaxUniformBuffersPerStage,
+                maximumStorageBuffersPerStage: (uint)Constants.MaxStorageBuffersPerStage,
+                maximumTexturesPerStage: (uint)Constants.MaxTexturesPerStage,
+                maximumImagesPerStage: (uint)Constants.MaxImagesPerStage,
                 maximumComputeSharedMemorySize: (int)limits.MaxComputeSharedMemorySize,
                 maximumSupportedAnisotropy: (int)limits.MaxSamplerAnisotropy,
                 shaderSubgroupSize: (int)Capabilities.SubgroupSize,

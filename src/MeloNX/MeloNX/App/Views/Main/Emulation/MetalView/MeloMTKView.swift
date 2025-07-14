@@ -99,7 +99,7 @@ class MeloMTKView: MTKView {
         let disabled = UserDefaults.standard.bool(forKey: "disableTouch")
         guard !disabled else { return }
         
-        setAspectRatio(Ryujinx.shared.config?.aspectRatio ?? .fixed16x9)
+        setAspectRatio(Ryujinx.shared.aspectRatio)
 
         for touch in touches {
             let location = touch.location(in: self)
@@ -153,7 +153,7 @@ class MeloMTKView: MTKView {
         let disabled = UserDefaults.standard.bool(forKey: "disableTouch")
         guard !disabled else { return }
         
-        setAspectRatio(Ryujinx.shared.config?.aspectRatio ?? .fixed16x9)
+        setAspectRatio(Ryujinx.shared.aspectRatio)
 
         for touch in touches {
             if ignoredTouches.contains(touch) {

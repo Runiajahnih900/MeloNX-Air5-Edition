@@ -158,7 +158,7 @@ class VirtualController : BaseController {
     }
 }
 
-enum VirtualControllerButton: Int {
+enum VirtualControllerButton: Int, Codable {
     case A
     case B
     case X
@@ -196,7 +196,7 @@ enum VirtualControllerButton: Int {
     }
 }
 
-enum ThumbstickType: Int {
+enum ThumbstickType: Int, Codable {
     case left
     case right
 }

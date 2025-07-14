@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -48,7 +48,7 @@
     <Message Importance="normal" Text="Found XCode at $(XcodeSelect)"  Condition=" '$(FindXCode)' == 'true' "/>
 
     <ItemGroup>
-<!--      <LinkerArg Include="-Wl,-ld_classic" /> -->
+          <!-- <LinkerArg Include="-Wl,-ld_classic" /> -->
       <LinkerArg Include="-flto -Ofast" />
       <LinkerArg Include="-isysroot %22$(XCodePath)Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk%22"
                  Condition=" $(RuntimeIdentifier.Contains('simulator')) "/>

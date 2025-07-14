@@ -16,8 +16,7 @@ struct EmulationView: View {
     
     @AppStorage("On-ScreenControllerOpacity") var controllerOpacity: Double = 1.0
     
-    @AppStorage("disableTouch") var blackScreen = false
-    
+    @AppStorage("OldView") var oldView = true
     @State var isPresentedThree: Bool = false
     @State var isAirplaying = Air.shared.connected
     @Binding var startgame: Game?
@@ -27,9 +26,18 @@ struct EmulationView: View {
     @State var showSettings = false
     @State var pauseEmu = true
     @AppStorage("location-enabled") var locationenabled: Bool = false
+    @FocusState private var isFocused: Bool
+    @ObservedObject var ryujijnx = Ryujinx.shared
     
     var body: some View {
         ZStack {
+            if oldView {
+                Color.black
+                    .ignoresSafeArea()
+                    .edgesIgnoringSafeArea(.all)
+                    .allowsHitTesting(false)
+            }
+            
             if isAirplaying {
                 TouchView()
                     .ignoresSafeArea()
@@ -37,104 +45,100 @@ struct EmulationView: View {
                     .onAppear {
                         Air.play(AnyView(MetalView().ignoresSafeArea().edgesIgnoringSafeArea(.all)))
                     }
-                
-                Color.black
-                    .ignoresSafeArea()
-                    .edgesIgnoringSafeArea(.all)
-                    .allowsHitTesting(false)
             } else {
-                MetalView() // The Emulation View
-                    .ignoresSafeArea()
-                    .edgesIgnoringSafeArea(.all)
+                MetalViewContainer() // The Emulation View
             }
             
             // Above Emulation View
             
             if isVCA {
-                ControllerView() // Virtual Controller
+                ControllerView(isEditing: .constant(false), gameId: startgame?.titleId) // Virtual Controller
                     .opacity(controllerOpacity)
                     .allowsHitTesting(true)
             }
             
-            Group {
-                VStack {
-                    HStack {
-                        if performacehud, !showlogsgame {
-                            PerformanceOverlayView()
-                        }
-                        
-                        Spacer()
-                        
-                        if performacehud, showlogsgame {
-                            PerformanceOverlayView()
-                        }
-                    }
-                    
-                    HStack {
-                        if showlogsgame, get_current_fps() != 0 {
-                            LogFileView(isfps: false)
-                        }
-                        
-                        Spacer()
-                    }
-                    
-                    
-                    if ssb {
-                        HStack {
-                            
-                            Menu {
-                                
-                                /*
-                                Button {
-                                    showSettings.toggle()
-
-                                } label: {
-                                    Label {
-                                        Text("Game Settings")
-                                    } icon: {
-                                        Image(systemName: "gearshape.circle")
-                                    }
-                                }
-                                 */
-                                
-                                Button {
-                                    pause_emulation(pauseEmu)
-                                    pauseEmu.toggle()
-                                } label: {
-                                    Label {
-                                        Text(pauseEmu ? "Pause" : "Play")
-                                    } icon: {
-                                        Image(systemName: pauseEmu ? "pause.circle" : "play.circle")
-                                    }
-                                }
-                                
-                                Button(role: .destructive) {
-                                    startgame = nil
-                                    stop_emulation()
-                                    try? Ryujinx.shared.stop()
-                                } label: {
-                                    Label {
-                                        Text("Exit (Unstable)")
-                                    } icon: {
-                                        Image(systemName: "x.circle")
-                                    }
-                                }
-                            } label: {
-                                ExtButtonIconView(button: .guide, opacity: 0.4)
-                            }
+            
+            VStack {
+                HStack {
+                    if !performacehud, showlogsgame, ProcessInfo.processInfo.isLowPowerModeEnabled {
+                        Circle()
+                            .fill(Color.orange)
+                            .frame(width: 10, height: 10)
                             .padding()
-                            
-                            Spacer()
-    
-                        }
                     }
+                    
+
+                    if ssb {
+                        Menu {
+                            Button {
+                                pause_emulation(pauseEmu)
+                                pauseEmu.toggle()
+                            } label: {
+                                Label {
+                                    Text(pauseEmu ? "Pause" : "Play")
+                                } icon: {
+                                    Image(systemName: pauseEmu ? "pause.circle" : "play.circle")
+                                }
+                            }
+                            
+                            Button {
+                                // ryujijnx.config?.aspectRatio
+                                ryujijnx.aspectRatio = nextAspectRatio(current: ryujijnx.aspectRatio)
+                            } label: {
+                                Label {
+                                    Text(ryujijnx.aspectRatio.displayName)
+                                } icon: {
+                                    Image(systemName: "rectangle.expand.vertical")
+                                }
+                            }
+                            
+                            Button(role: .destructive) {
+                                startgame = nil
+                                stop_emulation()
+                                try? Ryujinx.shared.stop()
+                            } label: {
+                                Label {
+                                    Text("Exit (Unstable)")
+                                } icon: {
+                                    Image(systemName: "x.circle")
+                                }
+                            }
+                        } label: {
+                            ExtButtonIconView(button: .guide, opacity: 0.4)
+                        }
+                        .menuStyle(.borderlessButton)
+                        .menuIndicator(.hidden)
+                        .padding()
+                    }
+                    
                     
                     Spacer()
                     
+                    
+                    if performacehud, getenv("MTL_HUD_ENABLED").flatMap({ String(cString: $0) }) != "1" {
+                        PerformanceOverlayView()
+                            .opacity(controllerOpacity)
+                            .padding(.horizontal)
+                    }
+                    
+                }
+                
+                Spacer()
+            }
+            
+            if showlogsgame, get_current_fps() != 0 {
+                VStack {
+                    LogFileView(isfps: false)
+                    
+                    Spacer()
                 }
             }
         }
         .onAppear {
+            DispatchQueue.main.async {
+                isFocused = true
+            }
+            
             LocationManager.sharedInstance.startUpdatingLocation()
             Air.shared.connectionCallbacks.append { cool in
                 DispatchQueue.main.async {
@@ -148,10 +152,12 @@ struct EmulationView: View {
                     print(cool)
                     startgame = nil
                     stop_emulation()
-                    try? Ryujinx.shared.stop()
+                    try? ryujijnx.stop()
                 }
             }
         }
+        .onKeyPress()
+        .focused($isFocused)
         .onChange(of: scenePhase) { newPhase in
             // Detect when the app enters the background
             if newPhase == .background {
@@ -172,4 +178,32 @@ struct EmulationView: View {
                 // }
         }
     }
+    
+    func nextAspectRatio(current: AspectRatio) -> AspectRatio {
+        let all = AspectRatio.allCases
+        if let index = all.firstIndex(of: current) {
+            let nextIndex = (index + 1) % all.count
+            return all[nextIndex]
+        } else {
+            return .fixed16x9 // Default fallback
+        }
+    }
+
 }
+
+// This is just to stop the sound on macOS when doing a keypress
+extension View {
+    func onKeyPress() -> some View {
+        if #available(iOS 17.0, *), ProcessInfo.processInfo.isiOSAppOnMac {
+            return AnyView(self
+                .focusable()
+                .focusEffectDisabled()
+                .onKeyPress { _ in
+                    return .handled
+                })
+        } else {
+            return AnyView(self)
+        }
+    }
+}
+

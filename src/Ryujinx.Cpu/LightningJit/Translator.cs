@@ -41,7 +41,7 @@ namespace Ryujinx.Cpu.LightningJit
 
         private readonly ConcurrentQueue<KeyValuePair<ulong, TranslatedFunction>> _oldFuncs;
         private readonly NoWxCache _noWxCache;
-        private readonly WriteZeroCache _writeZeroCache;
+        private readonly DualMappedNoWxCache _dualMappedCache;
         private bool _disposed;
 
         internal TranslatorCache<TranslatedFunction> Functions { get; }
@@ -57,27 +57,14 @@ namespace Ryujinx.Cpu.LightningJit
 
             if (IsNoWxPlatform)
             {
-                if (File.Exists("/System/Library/CoreServices/SystemVersion.plist"))
+                string dualMapped = Environment.GetEnvironmentVariable("DUAL_MAPPED_JIT");
+                if (dualMapped == "1") //(OperatingSystem.IsIOSVersionAtLeast(19) || OperatingSystem.IsIOSVersionAtLeast(26))
                 {
-                    string content = File.ReadAllText("/System/Library/CoreServices/SystemVersion.plist");
-                    if (content.Contains("22E5200s") && content.Contains("18.4") && content.Contains("Beta"))
-                    {
-                        // iOS 18.4db1 (22E5200s) disables traditional JIT (R/X) and needs a debugger to fill to the page to make the executable region a debug map.
-                        // Apple has confirmed that this change will be coming to later iOS releases.
-                        // Credit to JJTech for figuring out a workaround: https://gist.github.com/JJTech0130/142aee0f7bda9c61a421140d17afbdeb
-                        Console.WriteLine($"User is using iOS 18.4db1 (22E5200s), enabling Debugger Memory Writing");
-                        _writeZeroCache = new(new JitMemoryAllocator(), CreateStackWalker(), this);
-                        Functions = new TranslatorCache<TranslatedFunction>();
-                        FunctionTable = new AddressTable<ulong>(for64Bits ? _levels64Bit : _levels32Bit);
-                        Stubs = new TranslatorStubs(FunctionTable, _writeZeroCache);
-                    }
-                    else
-                    {
-                        _noWxCache = new(new JitMemoryAllocator(), CreateStackWalker(), this);
-                        Functions = new TranslatorCache<TranslatedFunction>();
-                        FunctionTable = new AddressTable<ulong>(for64Bits ? _levels64Bit : _levels32Bit);
-                        Stubs = new TranslatorStubs(FunctionTable, _noWxCache);
-                    }
+                    Console.WriteLine($"Dual Mapped JIT enabled.");
+                    _dualMappedCache = new(new JitMemoryAllocator(), CreateStackWalker(), this);
+                    Functions = new TranslatorCache<TranslatedFunction>();
+                    FunctionTable = new AddressTable<ulong>(for64Bits ? _levels64Bit : _levels32Bit);
+                    Stubs = new TranslatorStubs(FunctionTable, _dualMappedCache);
                 }
                 else
                 {
@@ -125,7 +112,7 @@ namespace Ryujinx.Cpu.LightningJit
 
             NativeInterface.UnregisterThread();
             _noWxCache?.ClearEntireThreadLocalCache();
-            _writeZeroCache?.ClearEntireThreadLocalCache();
+            _dualMappedCache?.ClearEntireThreadLocalCache();
         }
 
         internal IntPtr GetOrTranslatePointer(IntPtr framePointer, ulong address, ExecutionMode mode)
@@ -135,10 +122,10 @@ namespace Ryujinx.Cpu.LightningJit
                 CompiledFunction func = Compile(address, mode);
                 return _noWxCache.Map(framePointer, func.Code, address, (ulong)func.GuestCodeLength);
             }
-            else if (_writeZeroCache != null)
+            else if (_dualMappedCache != null)
             {
                 CompiledFunction func = Compile(address, mode);
-                return _writeZeroCache.Map(framePointer, func.Code, address, (ulong)func.GuestCodeLength);
+                return _dualMappedCache.Map(framePointer, func.Code, address, (ulong)func.GuestCodeLength);
             }
 
             return GetOrTranslate(address, mode).FuncPointer;
@@ -239,9 +226,9 @@ namespace Ryujinx.Cpu.LightningJit
                     {
                         _noWxCache.Dispose();
                     }
-                    else if (_writeZeroCache != null)
+                    else if (_dualMappedCache != null)
                     {
-                        _writeZeroCache.Dispose();
+                        _dualMappedCache.Dispose();
                     }
                     else
                     {

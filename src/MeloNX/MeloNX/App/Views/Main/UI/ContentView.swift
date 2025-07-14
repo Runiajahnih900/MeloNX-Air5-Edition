@@ -52,6 +52,9 @@ struct ContentView: View {
     @AppStorage("MVK_CONFIG_PREFILL_METAL_COMMAND_BUFFERS") var mVKPreFillBuffer: Bool = true
     @AppStorage("MVK_CONFIG_SYNCHRONOUS_QUEUE_SUBMITS") var syncqsubmits: Bool = false
     @AppStorage("ignoreJIT") var ignoreJIT: Bool = false
+    @AppStorage("DUAL_MAPPED_JIT") var dualMapped: Bool = false
+    @AppStorage("DUAL_MAPPED_JIT_edit") var dualMappededit: Bool = false
+
     
     // Loading Animation
     @AppStorage("showlogsloading") var showlogsloading: Bool = true
@@ -78,6 +81,12 @@ struct ContentView: View {
             MoltenVKSettings(string: "MVK_CONFIG_PREFILL_METAL_COMMAND_BUFFERS", value: "0"),
             MoltenVKSettings(string: "MVK_CONFIG_MAX_ACTIVE_METAL_COMMAND_BUFFERS_PER_QUEUE", value: "512"),
         ]
+        
+        if #available(iOS 19, *) {
+            setenv("HAS_TXM", ProcessInfo.processInfo.hasTXM ? "1" : "0", 1)
+        } else {
+            setenv("HAS_TXM", "0", 1)
+        }
         
         _settings = State(initialValue: defaultSettings)
         
@@ -146,9 +155,7 @@ struct ContentView: View {
             let _ = loadSettings()
             isLoading = true
             
-            Timer.scheduledTimer(withTimeInterval: 1, repeats: false) { _ in
-                refreshControllersList()
-            }
+            refreshControllersList()
             
             UserDefaults.standard.set(false, forKey: "lockInApp")
             
@@ -322,7 +329,9 @@ struct ContentView: View {
         controllersList.mutableForEach { $0.name = $0.name.replacingOccurrences(of: "GC - ", with: "") }
         
         if controllersList.count == 1 {
-            currentControllers.append(controllersList[0])
+            if !ProcessInfo.processInfo.isiOSAppOnMac {
+                currentControllers.append(controllersList[0])
+            }
         } else if (controllersList.count - 1) >= 1 {
             for controller in controllersList {
                 if controller.id != onscreencontroller.id && !currentControllers.contains(where: { $0.id == controller.id }) {
@@ -392,6 +401,12 @@ struct ContentView: View {
         if syncqsubmits {
             setenv("MVK_CONFIG_SYNCHRONOUS_QUEUE_SUBMITS", "1", 1)
         }
+        
+        if dualMapped {
+            setenv("DUAL_MAPPED_JIT", "1", 1)
+        } else {
+            setenv("DUAL_MAPPED_JIT", "0", 1)
+        }
     }
     
     private func setMoltenVKSettings() {
@@ -405,7 +420,11 @@ struct ContentView: View {
         if jitStreamerEB {
             jitStreamerEB = false // byee jitstreamer eb
         }
-        
+        print("Has TXM? \(ProcessInfo.processInfo.hasTXM)")
+        if #available(iOS 19, *), !dualMappededit {
+            dualMapped = !ProcessInfo.processInfo.isiOSAppOnMac
+            dualMappededit = true
+        }
         
         if !ryujinx.jitenabled {
             if useTrollStore {
@@ -415,12 +434,7 @@ struct ContentView: View {
             } else if jitStreamerEB {
                 enableJITEB()
             } else {
-                if !allocateTest(), checkDebugged() {
-                    loop_heartbeat()
-                    sleep(5)
-                    let cool = String(cString: attach(getpid())!)
-                    print(cool)
-                }
+                // nothing
             }
         }
     }
@@ -428,8 +442,6 @@ struct ContentView: View {
     private func handleDeepLink(_ url: URL) {
         if let components = URLComponents(url: url, resolvingAgainstBaseURL: true),
            components.host == "game" {
-            
-            refreshControllersList()
             
             if let text = components.queryItems?.first(where: { $0.name == "id" })?.value {
                 game = ryujinx.games.first(where: { $0.titleId == text })

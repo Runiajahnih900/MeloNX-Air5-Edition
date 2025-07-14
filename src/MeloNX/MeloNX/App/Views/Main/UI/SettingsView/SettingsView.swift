@@ -232,6 +232,7 @@ struct SettingsViewNew: View {
     
     @AppStorage("MVK_CONFIG_PREFILL_METAL_COMMAND_BUFFERS") var mVKPreFillBuffer: Bool = false
     @AppStorage("MVK_CONFIG_SYNCHRONOUS_QUEUE_SUBMITS") var syncqsubmits: Bool = false
+    @AppStorage("DUAL_MAPPED_JIT") var dualMapped: Bool = false
     
     @AppStorage("performacehud") var performacehud: Bool = false
     
@@ -260,19 +261,17 @@ struct SettingsViewNew: View {
 
     @AppStorage("disableTouch") var disableTouch = false
     
-    @AppStorage("disableTouch") var blackScreen = false
-    
     @AppStorage("location-enabled") var locationenabled: Bool = false
     
     @AppStorage("runOnMainThread") var runOnMainThread = false
     
     @AppStorage("oldSettingsUI") var oldSettingsUI = false
     
-    @AppCodableStorage("toggleButtons") var toggleButtons = ToggleButtonsState()
-    
     let totalMemory = ProcessInfo.processInfo.physicalMemory
     
     @AppStorage("lockInApp") var restartApp = false
+    
+    @AppStorage("OldView") var oldView = true
     
     @State private var showResolutionInfo = false
     @State private var showAnisotropicInfo = false
@@ -375,12 +374,26 @@ struct SettingsViewNew: View {
                                         color: .blue
                                     )
                                     
-                                    InfoCard(
-                                        title: "System",
-                                        value: "\(UIDevice.current.systemName) \(UIDevice.current.systemVersion)",
-                                        icon: "applelogo",
-                                        color: .gray
-                                    )
+                                    let versionPart = ProcessInfo.processInfo.operatingSystemVersionString.replacingOccurrences(of: "Version ", with: "")
+
+                                    let parts = versionPart.components(separatedBy: " (Build ")
+                                    if parts.count == 2 {
+                                        let version = parts[0]
+                                        let build = parts[1].replacingOccurrences(of: ")", with: "")
+                                        InfoCard(
+                                            title: "System",
+                                            value: "\(ProcessInfo.processInfo.isiOSAppOnMac ? "macOS" : UIDevice.current.systemName) \(version) (\(build))",
+                                            icon: "applelogo",
+                                            color: .gray
+                                        )
+                                    } else {
+                                        InfoCard(
+                                            title: "System",
+                                            value: "\(ProcessInfo.processInfo.isiOSAppOnMac ? "macOS" : UIDevice.current.systemName) \(UIDevice.current.systemVersion)",
+                                            icon: "applelogo",
+                                            color: .gray
+                                        )
+                                    }
                                     
                                     InfoCard(
                                         title: "Increased Memory Limit",
@@ -550,6 +563,16 @@ struct SettingsViewNew: View {
                 Text("·")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
+                
+                if ProcessInfo.processInfo.isiOSAppOnMac {
+                    Text("macOS \(ProcessInfo.processInfo.operatingSystemVersionString)")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundColor(.secondary)
+                    
+                    Text("·")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
                 
                 Text("Version \(appVersion)")
                     .font(.subheadline)
@@ -755,6 +778,11 @@ struct SettingsViewNew: View {
             // Aspect ratio card
             SettingsCard {
                 VStack(alignment: .leading, spacing: 12) {
+                    
+                    SettingsToggle(isOn: $oldView, icon: "rectangle.on.rectangle.dashed", label: "Old Display UI")
+                    
+                    Divider()
+                    
                     labelWithIcon("Aspect Ratio", iconName: "rectangle.expand.vertical")
                         .font(.headline)
                     
@@ -825,16 +853,6 @@ struct SettingsViewNew: View {
                     Divider()
                     
                     SettingsToggle(isOn: $swapBandA, icon: "rectangle.2.swap", label: "Swap Face Buttons (Physical Controller)")
-                    
-                    Divider()
-                    
-                    DisclosureGroup("Toggle Buttons") {
-                        SettingsToggle(isOn: $toggleButtons.toggle1, icon: "circle.grid.cross.right.filled", label: "Toggle A")
-                        SettingsToggle(isOn: $toggleButtons.toggle2, icon: "circle.grid.cross.down.filled", label: "Toggle B")
-                        SettingsToggle(isOn: $toggleButtons.toggle3, icon: "circle.grid.cross.up.filled", label: "Toggle X")
-                        SettingsToggle(isOn: $toggleButtons.toggle4, icon: "circle.grid.cross.left.filled", label: "Toggle Y")
-                    }
-                    .padding(.vertical, 6)
                 }
             }
             
@@ -1242,6 +1260,7 @@ struct SettingsViewNew: View {
         SettingsSection(title: "Miscellaneous Options") {
             SettingsCard {
                 VStack(spacing: 4) {
+
                     if UIDevice.current.userInterfaceIdiom == .pad {
                         SettingsToggle(isOn: $toggleGreen, icon: "arrow.clockwise", label: "Toggle Color Green when \"ON\"")
                         
@@ -1254,11 +1273,6 @@ struct SettingsViewNew: View {
                     
                     Divider()
                     
-                    if colorScheme == .light {
-                        SettingsToggle(isOn: $blackScreen, icon: "iphone.slash", label: "Black Screen when using AirPlay")
-                        
-                        Divider()
-                    }
                     
                     Button {
                         showAppIconSwitcher = true
@@ -1354,20 +1368,25 @@ struct SettingsViewNew: View {
                     
                     Divider()
                     
+                    SettingsToggle(isOn: $dualMapped, icon: "light.strip.2", label: "Dual Mapped JIT")
+                    
+                    Divider()
+                    
                     SettingsToggle(isOn: $checkForUpdate, icon: "square.and.arrow.down", label: "Check for Updates")
                     
-                    if ryujinx.firmwareversion != "0" {
-                        Divider()
-                        Button {
-                            Ryujinx.shared.removeFirmware()
-                        } label: {
-                            HStack {
-                                Text("Remove Firmware")
-                                    .foregroundColor(.blue)
-                                Spacer()
-                            }
-                            .padding(.vertical, 8)
+                    Divider()
+                    
+                    Button {
+                        Ryujinx.clearShaderCache()
+                    } label: {
+                        HStack {
+                            Image(systemName: "trash")
+                                .foregroundColor(.blue)
+                            Text("Clear All Shader Cache")
+                                .foregroundColor(.primary)
+                            Spacer()
                         }
+                        .padding(.vertical, 8)
                     }
                 }
             }

@@ -21,13 +21,12 @@ struct MetalView: UIViewRepresentable {
                 fatalError("[Swift] Error: MTKView's layer is not a CAMetalLayer")
             }
             
-            metalLayer.device = MTLCreateSystemDefaultDevice()
+            notnil(metalLayer.device) ? () : (metalLayer.device = MTLCreateSystemDefaultDevice())
             
             let layerPtr = Unmanaged.passUnretained(metalLayer).toOpaque()
             set_native_window(layerPtr)
             
             Ryujinx.shared.emulationUIView = view
-            
             
             Ryujinx.shared.metalLayer = metalLayer
             
@@ -51,5 +50,7 @@ struct MetalView: UIViewRepresentable {
     
     func updateUIView(_ uiView: UIView, context: Context) {
         // nothin
+        print(context)
     }
 }
+

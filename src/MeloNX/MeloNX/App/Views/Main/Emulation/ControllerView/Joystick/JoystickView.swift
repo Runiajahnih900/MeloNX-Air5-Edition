@@ -9,7 +9,7 @@
 import SwiftUI
 
 struct JoystickController: View {
-    @State var iscool: Bool? = nil
+    @State var iscool: Bool
     @Environment(\.colorScheme) var colorScheme
     @Binding var showBackground: Bool
     @AppStorage("On-ScreenControllerScale") var controllerScale: Double = 1.0
@@ -25,15 +25,8 @@ struct JoystickController: View {
     }
     
     public var body: some View {
-        VStack {
-            Joystick(position: $position, joystickSize: dragDiameter * 0.2, boundarySize: dragDiameter, showBackground: $showBackground)
-                .onChange(of: position) { newValue in
-                    if iscool != nil {
-                        Ryujinx.shared.virtualController.thumbstickMoved(.right, x: newValue.x, y: newValue.y)
-                    } else {
-                        Ryujinx.shared.virtualController.thumbstickMoved(.left, x: newValue.x, y: newValue.y)
-                    }
-                }
+        Group {
+            Joystick(right: iscool, position: $position, joystickSize: dragDiameter * 0.2, boundarySize: dragDiameter, showBackground: $showBackground)
         }
     }
 }

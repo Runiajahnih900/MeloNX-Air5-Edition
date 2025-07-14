@@ -27,13 +27,21 @@ struct GameLibraryView: View {
     @State var isSelectingGameFile = false
     @State var isViewingGameInfo: Bool = false
     @State var gamePerGameSettings: Game?
+    @State var gameController: Game?
     var isShowingPerGameSettings: Binding<Bool> {
         Binding<Bool> {
             gamePerGameSettings != nil
         } set: { value in
             !value ? gamePerGameSettings = nil : ()
         }
-
+    }
+    
+    var isShowingGameController: Binding<Bool> {
+        Binding<Bool> {
+            gameController != nil
+        } set: { value in
+            !value ? gameController = nil : ()
+        }
     }
     @State var isSelectingGameUpdate: Bool = false
     @State var isSelectingGameDLC: Bool = false
@@ -213,6 +221,9 @@ struct GameLibraryView: View {
             .sheet(isPresented: isShowingPerGameSettings) {
                 PerGameSettingsView(titleId: gamePerGameSettings!.titleId)
             }
+            .fullScreenCover(isPresented: isShowingGameController) {
+                ControllerView(isEditing: isShowingGameController, gameId: gameController?.titleId)
+            }
             .sheet(isPresented: Binding(
                 get: { isViewingGameInfo && gameInfo != nil },
                 set: { newValue in
@@ -284,6 +295,7 @@ struct GameLibraryView: View {
                                     isSelectingGameDLC: $isSelectingGameDLC,
                                     gameRequirements: $gameRequirements,
                                     gameInfo: $gameInfo,
+                                    isShowingGameController: $gameController,
                                     perGameSettings: $gamePerGameSettings
                                 )
                                 .padding(.horizontal)
@@ -302,6 +314,7 @@ struct GameLibraryView: View {
                             isSelectingGameDLC: $isSelectingGameDLC,
                             gameRequirements: $gameRequirements,
                             gameInfo: $gameInfo,
+                            isShowingGameController: $gameController,
                             perGameSettings: $gamePerGameSettings
                         )
                         .padding(.horizontal)
@@ -502,6 +515,12 @@ struct GameLibraryView: View {
                 } label: {
                     Label("\(game.titleName) Settings", systemImage: "gear")
                 }
+                
+                Button {
+                    gameController = game
+                } label: {
+                    Label("Controller Layout", systemImage: "formfitting.gamecontroller")
+                }
             }
 
             Section {
@@ -525,6 +544,12 @@ struct GameLibraryView: View {
                     removeFromRecentGames(game)
                 } label: {
                     Label("Remove from Recents", systemImage: "trash")
+                }
+                
+                Button(role: .destructive) {
+                    Ryujinx.clearShaderCache(game.titleId)
+                } label: {
+                    Label("Clear Shader Cache", systemImage: "trash")
                 }
                 
                 if #available(iOS 15, *) {
@@ -797,6 +822,7 @@ struct GameListRow: View {
     @Binding var isSelectingGameDLC: Bool
     @Binding var gameRequirements: [GameRequirements]
     @Binding var gameInfo: Game?
+    @Binding var isShowingGameController: Game?
     @StateObject private var settingsManager = PerGameSettingsManager.shared
     @Binding var perGameSettings: Game?
     @State var gametoDelete: Game?
@@ -939,6 +965,14 @@ struct GameListRow: View {
                     } label: {
                         Label("\(game.titleName) Settings", systemImage: "gear")
                     }
+                    
+                    // isShowingGameController
+                    
+                    Button {
+                        isShowingGameController = game
+                    } label: {
+                        Label("Controller Layout", systemImage: "formfitting.gamecontroller")
+                    }
                 }
                 
                 Section {
@@ -958,6 +992,12 @@ struct GameListRow: View {
                 }
                 
                 Section {
+                    Button(role: .destructive) {
+                        Ryujinx.clearShaderCache(game.titleId)
+                    } label: {
+                        Label("Clear Shader Cache", systemImage: "trash")
+                    }
+                    
                     Button(role: .destructive) {
                         gametoDelete = game
                         showGameDeleteConfirmation.toggle()
@@ -1114,6 +1154,12 @@ struct GameListRow: View {
                     } label: {
                         Label("Game Info", systemImage: "info.circle")
                     }
+                    
+                    Button {
+                        isShowingGameController = game
+                    } label: {
+                        Label("Controller Layout", systemImage: "formfitting.gamecontroller")
+                    }
                 }
                 
                 Section {
@@ -1133,6 +1179,12 @@ struct GameListRow: View {
                 }
                 
                 Section {
+                    Button(role: .destructive) {
+                        Ryujinx.clearShaderCache(game.titleId)
+                    } label: {
+                        Label("Clear Shader Cache", systemImage: "trash")
+                    }
+                    
                     Button {
                         gametoDelete = game
                         showGameDeleteConfirmation.toggle()
@@ -1238,30 +1290,10 @@ func pullGameCompatibility(completion: @escaping (Result<[GameRequirements], Err
 
 extension View {
     func wow(_ colorScheme: ColorScheme) -> some View {
-        if #available(iOS 26.0, *) {
-            return self
-                .glassEffect(Glass.regular, in:
-                                RoundedRectangle(cornerRadius: 12)
-                )
-        } else {
-            return self
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(colorScheme == .dark ? Color(.systemGray6) : Color(.systemGray6).opacity(0.5))
-                )
-        }
+        self
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(colorScheme == .dark ? Color(.systemGray6) : Color(.systemGray6).opacity(0.5))
+            )
     }
-}
-
-
-extension View {
-    @available(iOS, introduced: 14.0, deprecated: 19.0, message: "")
-    func glassEffect(_ style: Glass, in shape: some Shape) -> some View {
-        return self
-    }
-}
-
-@available(iOS, introduced: 14.0, deprecated: 19.0, message: "")
-struct Glass: Hashable {
-    static var regular = Glass()
 }

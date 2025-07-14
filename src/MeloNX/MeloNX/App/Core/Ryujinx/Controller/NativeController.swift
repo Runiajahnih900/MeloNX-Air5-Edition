@@ -12,7 +12,8 @@ class NativeController: Hashable, BaseController {
     private var instanceID: SDL_JoystickID = -1
     private var controller: OpaquePointer?
     private var nativeController: GCController
-    private var controllerMotionProvider: DSUMotionProvider?
+    private var controllerMotionProvider: ControllerMotionProvider?
+    private var deviceMotionProvider: DeviceMotionProvider?
     
     private let controllerHaptics: CHHapticEngine?
     private let rumbleController: RumbleController?
@@ -24,14 +25,14 @@ class NativeController: Hashable, BaseController {
         var ncontrollerHaptics = nativeController.haptics?.createEngine(withLocality: .default)
         
         let vendorName = nativeController.vendorName ?? "Unknown"
-        var usesdeviceHaptics = (ncontrollerHaptics == nil || vendorName.lowercased().hasSuffix("backbone") || vendorName.lowercased() == "backbone one")
-        controllerHaptics = usesdeviceHaptics ? ncontrollerHaptics : try? CHHapticEngine()
+        var usesdeviceHaptics = (ncontrollerHaptics == nil && (vendorName.lowercased().hasSuffix("backbone") || vendorName.lowercased() == "backbone one"))
+        controllerHaptics = usesdeviceHaptics ?  try? CHHapticEngine() : ncontrollerHaptics
         
         // Make sure the haptic engine exists before attempting to start it or initialize the controller.
         if let hapticsEngine = controllerHaptics {
             do {
                 try hapticsEngine.start()
-                rumbleController = RumbleController(engine: hapticsEngine, rumbleMultiplier: 1.2)
+                rumbleController = RumbleController(engine: hapticsEngine, rumbleMultiplier: usesdeviceHaptics ? 2.0 : 2.5)
             } catch {
                 rumbleController = nil
             }
@@ -51,14 +52,22 @@ class NativeController: Hashable, BaseController {
         let vendorName = nativeController.vendorName ?? "Unknown"
         var usesdevicemotion = (vendorName.lowercased() == "Joy-Con (l/R)".lowercased() || vendorName.lowercased().hasSuffix("backbone") || vendorName.lowercased() == "backbone one")
         
-        controllerMotionProvider = usesdevicemotion ? DeviceMotionProvider(slot: slot) : ControllerMotionProvider(controller: nativeController, slot: slot)
+        usesdevicemotion ? (deviceMotionProvider = DeviceMotionProvider(slot: slot)) : (controllerMotionProvider = ControllerMotionProvider(controller: nativeController, slot: slot))
         
         if let provider = controllerMotionProvider {
+            dsuServer.register(provider)
+        } else if let provider = deviceMotionProvider {
             dsuServer.register(provider)
         }
     }
     
-    internal func tryGetMotionProvider() -> DSUMotionProvider? { return controllerMotionProvider }
+    internal func tryGetMotionProvider() -> DSUMotionProvider? {
+        if let deviceMotionProvider {
+            return deviceMotionProvider
+        }
+        
+        return controllerMotionProvider
+    }
 
     private func setupHandheldController() {
         if SDL_WasInit(Uint32(SDL_INIT_GAMECONTROLLER)) == 0 {

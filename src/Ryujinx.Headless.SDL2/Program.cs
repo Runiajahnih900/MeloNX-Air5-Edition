@@ -992,15 +992,16 @@ namespace Ryujinx.Headless.SDL2
                     bool isNintendoStyle = true; // gamepadName.Contains("Nintendo") || gamepadName.Contains("Joycons");
 
                     ControllerType currentController; 
+                    
                     if (index == PlayerIndex.Handheld)
                     {
                         currentController = ControllerType.Handheld;
-                    } 
+                    }
                     else if (gamepadName.Contains("Joycons") || gamepadName.Contains("Backbone"))
                     {
                         currentController = ControllerType.JoyconPair;
-                    } 
-                    else 
+                    }
+                    else
                     {
                         currentController = ControllerType.ProController;
                     }

@@ -41,7 +41,11 @@ struct MeloNXApp: App {
     @AppStorage("autoJIT") var autoJIT = false
     
     @State var fourgbiPad = false
+    @State var ios19 = false
     @AppStorage("4GB iPad") var ignores = false
+    @AppStorage("iOS19") var ignores19 = false
+    @AppStorage("DUAL_MAPPED_JIT") var dualMapped: Bool = false
+    @AppStorage("DUAL_MAPPED_JIT_edit") var dualMappededit: Bool = false
     // String(format: "%.0f GB", Double(totalMemory) / 1_000_000_000)
     var body: some Scene {
         WindowGroup {
@@ -77,10 +81,19 @@ struct MeloNXApp: App {
                             withAnimation(.easeOut) {
                                 finishedStorage = newValue
                             }
+                            
+                            if #available(iOS 19, *), newValue {
+                                dualMapped = !ProcessInfo.processInfo.isiOSAppOnMac
+                                dualMappededit = true
+                            }
                         }
                 }
             }
             .onAppear() {
+                if #available(iOS 19, *), ProcessInfo.processInfo.hasTXM, !ignores19 {
+                    ios19 = true
+                }
+                
                 if UIDevice.current.userInterfaceIdiom == .pad && !ignores {
                     print((Double(ProcessInfo.processInfo.physicalMemory) / 1_000_000_000))
                     if round(Double(ProcessInfo.processInfo.physicalMemory) / 1_000_000_000) <= 4 {
@@ -148,3 +161,4 @@ func changeAppUI(_ string: String) -> String? {
     guard let data = Data(base64Encoded: string) else { return nil }
     return String(data: data, encoding: .utf8)
 }
+

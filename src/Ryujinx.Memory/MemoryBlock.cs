@@ -13,13 +13,20 @@ namespace Ryujinx.Memory
         private readonly bool _isMirror;
         private readonly bool _viewCompatible;
         private readonly bool _forJit;
+        private DualMappedJitAllocator _dualMappedAllocator;
         private IntPtr _sharedMemory;
         private IntPtr _pointer;
+        private IntPtr _rxPointer;
 
         /// <summary>
-        /// Pointer to the memory block data.
+        /// Pointer to the memory block data (RW).
         /// </summary>
         public IntPtr Pointer => _pointer;
+
+        /// <summary>
+        /// Pointer to the RX mapping (for execution), or IntPtr.Zero if not dual-mapped.
+        /// </summary>
+        public IntPtr RxPointer => _rxPointer;
 
         /// <summary>
         /// Size of the memory block.
@@ -35,7 +42,16 @@ namespace Ryujinx.Memory
         /// <exception cref="PlatformNotSupportedException">Throw when the current platform is not supported</exception>
         public MemoryBlock(ulong size, MemoryAllocationFlags flags = MemoryAllocationFlags.None)
         {
-            if (flags.HasFlag(MemoryAllocationFlags.Mirrorable))
+            Size = size;
+            if (flags.HasFlag(MemoryAllocationFlags.DualMapping))
+            {
+                _dualMappedAllocator = new DualMappedJitAllocator(size);
+                _pointer = _dualMappedAllocator.RwPtr;
+                _rxPointer = _dualMappedAllocator.RxPtr;
+                _forJit = true;
+                return;
+            }
+            else if (flags.HasFlag(MemoryAllocationFlags.Mirrorable))
             {
                 _sharedMemory = MemoryManagement.CreateSharedMemory(size, flags.HasFlag(MemoryAllocationFlags.Reserve));
 
@@ -58,7 +74,7 @@ namespace Ryujinx.Memory
                 _pointer = MemoryManagement.Allocate(size, _forJit);
             }
 
-            Size = size;
+            _rxPointer = _pointer;
         }
 
         /// <summary>
@@ -165,7 +181,10 @@ namespace Ryujinx.Memory
         /// <exception cref="MemoryProtectionException">Throw when <paramref name="permission"/> is invalid</exception>
         public void Reprotect(ulong offset, ulong size, MemoryPermission permission, bool throwOnFail = true)
         {
-            MemoryManagement.Reprotect(GetPointerInternal(offset, size), size, permission, _viewCompatible, throwOnFail);
+            if (_rxPointer == _pointer)
+            {
+                MemoryManagement.Reprotect(GetPointerInternal(offset, size), size, permission, _viewCompatible, throwOnFail);
+            }
         }
 
         /// <summary>
@@ -388,8 +407,13 @@ namespace Ryujinx.Memory
         {
             IntPtr ptr = Interlocked.Exchange(ref _pointer, IntPtr.Zero);
 
-            // If pointer is null, the memory was already freed or never allocated.
-            if (ptr != IntPtr.Zero)
+            if (_dualMappedAllocator != null)
+            {
+                _dualMappedAllocator.Dispose();
+                _dualMappedAllocator = null;
+                _rxPointer = IntPtr.Zero;
+            }
+            else if (ptr != IntPtr.Zero)
             {
                 if (_usesSharedMemory)
                 {
