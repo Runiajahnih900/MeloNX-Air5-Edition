@@ -27,7 +27,7 @@ MeloNX works on iPhone 11 (XS/XR may work but can have issues) and later and iPa
 ## FAQ
 - MeloNX cannot be Sideloaded normally and requires the use of the following Installation Guide(s).
 - [SideStore](https://sidestore.io/) is recommended for Sideloading MeloNX
-- Apple ID with free developer account
+- Apple ID with free / paid developer account
 - MeloNX requires JIT
 - Recommended Device: iPhone 15 Pro or newer.
 - Low-End Recommended Device: iPhone 13 Pro. 
@@ -44,7 +44,7 @@ We have a discord server!
 
 #### 1. Sideload MeloNX
 Download and install MeloNX using your preferred Apple ID sideloader:
-  - [Download MeloNX from Releases](https://git.743378673.xyz/MeloNX/MeloNX/releases)
+  - [Download MeloNX from Releases](https://git.ryujinx.app/melonx/emu/-/releases)
 
 #### 2. Enable Memory Entitlement
    - Visit [Apple Developer Identifiers](https://developer.apple.com/account/resources/identifiers).  
@@ -75,7 +75,7 @@ Download and install MeloNX using your preferred Apple ID sideloader:
 
 #### 1. Sideload Applications
 Download and install both apps using your preferred **APPLE ID** sideloader:
-  - **MeloNX**: [Download from Releases](https://git.743378673.xyz/MeloNX/MeloNX/releases)
+  - **MeloNX**: [Download from Releases](https://git.ryujinx.app/melonx/emu/-/releases)
   - **Entitlement App**: [Download IPA](https://github.com/hugeBlack/GetMoreRam/releases/download/nightly/Entitlement.ipa)
 
 #### 2. Enable Memory Entitlement
@@ -123,7 +123,7 @@ As Said in FAQ:
 **NOTE: These Xcode builds are nightly and may have unfinished features.**
 
 1. **Compile Guide**
-   - Visit the [guide here](https://git.743378673.xyz/MeloNX/MeloNX/src/branch/XC-ios-ht/Compile.md).
+   - Visit the [guide here](https://git.ryujinx.app/melonx/emu/-/blob/XC-ios-ht/Compile.md?ref_type=heads).
 
 2. **Add Necessary Files**  
 
