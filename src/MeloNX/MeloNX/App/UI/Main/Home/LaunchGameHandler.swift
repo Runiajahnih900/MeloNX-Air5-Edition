@@ -96,6 +96,10 @@ class LaunchGameHandler: ObservableObject {
         persettings.loadSettings()
         
         var config = persettings.config[currentGame.titleId] ?? self.config
+
+        if config.hypervisor && !(ProcessInfo.processInfo.isiOSAppOnMac || checkAppEntitlement("com.apple.private.hypervisor")) {
+            config.hypervisor = false
+        }
         
         controllerManager.registerControllerTypeForMatchingControllers()
         config.gamepath = currentGame.fileURL.path

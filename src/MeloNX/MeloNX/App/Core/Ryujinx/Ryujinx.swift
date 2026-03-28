@@ -84,7 +84,7 @@ class Ryujinx : ObservableObject {
         var aspectRatio: AspectRatio = .fixed16x9
         var memoryManagerMode: String = "HostMappedUnsafe"
         var enableShaderCache: Bool = true
-        var hypervisor: Bool = true
+        var hypervisor: Bool = false
         var enableDockedMode: Bool = false
         var enableTextureRecompression: Bool = true
         var additionalArgs: [String] = []
@@ -457,7 +457,7 @@ class Ryujinx : ObservableObject {
         }
         
         
-        if config.hypervisor {
+        if config.hypervisor && (ProcessInfo.processInfo.isiOSAppOnMac || checkAppEntitlement("com.apple.private.hypervisor")) {
             args.append("--use-hypervisor")
         }
         
