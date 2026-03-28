@@ -18,6 +18,8 @@ final class LogCapture: ObservableObject {
 
     private var continuation: AsyncStream<String>.Continuation?
     public private(set) var capturedLogs: [String] = []
+    private let fileIOQueue = DispatchQueue(label: "com.melonx.logcapture.file-io")
+    private var sessionFileHandle: FileHandle?
 
     lazy var logs: AsyncStream<String> = {
         AsyncStream { continuation in
@@ -70,9 +72,86 @@ final class LogCapture: ObservableObject {
                   !cleanedLog.0.isEmpty else { return }
 
             self.capturedLogs.append(cleanedLog.1)
-            self.continuation?.yield(cleanedLog.0) 
+            self.appendToSessionLog(cleanedLog.1)
+            self.continuation?.yield(cleanedLog.0)
 
         }
+    }
+
+    func startGameSessionLog(gameTitle: String, titleId: String) {
+        capturedLogs.removeAll(keepingCapacity: true)
+
+        let safeTitle = sanitizeFilenameComponent(gameTitle, fallback: "UnknownGame")
+        let safeTitleId = sanitizeFilenameComponent(titleId, fallback: "UnknownTitleId")
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        let timestamp = formatter.string(from: Date())
+
+        let logName = "\(timestamp)-\(safeTitle)-\(safeTitleId).log"
+        let logsDirectory = URL.documentsDirectory
+            .appendingPathComponent("logs")
+            .appendingPathComponent("games")
+        let logURL = logsDirectory.appendingPathComponent(logName)
+
+        fileIOQueue.sync {
+            closeSessionFileHandleLocked()
+
+            do {
+                try FileManager.default.createDirectory(at: logsDirectory, withIntermediateDirectories: true)
+                if !FileManager.default.fileExists(atPath: logURL.path) {
+                    FileManager.default.createFile(atPath: logURL.path, contents: nil)
+                }
+
+                let handle = try FileHandle(forWritingTo: logURL)
+                try handle.seekToEnd()
+                sessionFileHandle = handle
+
+                let header = "Session started: \(Date())\nGame: \(gameTitle)\nTitle ID: \(titleId)\n\n"
+                if let data = header.data(using: .utf8) {
+                    try handle.write(contentsOf: data)
+                }
+            } catch {
+                sessionFileHandle = nil
+            }
+        }
+    }
+
+    func endGameSessionLog() {
+        fileIOQueue.sync {
+            closeSessionFileHandleLocked()
+        }
+    }
+
+    private func appendToSessionLog(_ logLine: String) {
+        fileIOQueue.async {
+            guard let sessionFileHandle,
+                  let data = (logLine + "\n").data(using: .utf8) else {
+                return
+            }
+
+            do {
+                try sessionFileHandle.seekToEnd()
+                try sessionFileHandle.write(contentsOf: data)
+            } catch {
+                self.closeSessionFileHandleLocked()
+            }
+        }
+    }
+
+    private func closeSessionFileHandleLocked() {
+        do {
+            try sessionFileHandle?.close()
+        } catch {
+            // Ignore close failures; log capture should not crash the app.
+        }
+        sessionFileHandle = nil
+    }
+
+    private func sanitizeFilenameComponent(_ input: String, fallback: String) -> String {
+        let replaced = input.replacingOccurrences(of: "[^A-Za-z0-9_-]+", with: "_", options: .regularExpression)
+        let trimmed = replaced.trimmingCharacters(in: CharacterSet(charactersIn: "_"))
+        return trimmed.isEmpty ? fallback : String(trimmed.prefix(80))
     }
 
     private func cleanLog(_ raw: String) -> (String, String)? {
@@ -108,6 +187,7 @@ final class LogCapture: ObservableObject {
     }
 
     deinit {
+        endGameSessionLog()
         stopCapturing()
         continuation?.finish()
     }

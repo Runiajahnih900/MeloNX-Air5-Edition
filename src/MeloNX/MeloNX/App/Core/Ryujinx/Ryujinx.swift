@@ -163,6 +163,8 @@ class Ryujinx : ObservableObject {
                 Task { @MainActor in
                     self.isRunning = false
                 }
+
+                LogCapture.shared.endGameSessionLog()
                 
                 Thread.sleep(forTimeInterval: 0.3)
                 let logs = LogCapture.shared.capturedLogs
@@ -305,6 +307,7 @@ class Ryujinx : ObservableObject {
             throw RyujinxError.notRunning
         }
         
+        LogCapture.shared.endGameSessionLog()
         isRunning = false
         
         UserDefaults.standard.set(false, forKey: "lockInApp")

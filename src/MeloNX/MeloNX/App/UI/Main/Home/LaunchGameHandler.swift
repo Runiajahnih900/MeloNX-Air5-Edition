@@ -92,6 +92,8 @@ class LaunchGameHandler: ObservableObject {
         MetalView.createView()
         
         guard let currentGame else { return }
+
+        LogCapture.shared.startGameSessionLog(gameTitle: currentGame.titleName, titleId: currentGame.titleId)
         
         persettings.loadSettings()
         
@@ -116,6 +118,7 @@ class LaunchGameHandler: ObservableObject {
             try ryujinx.start(with: config)
         } catch {
             print("Failed to start game '\(currentGame.titleId)': \(error)")
+            LogCapture.shared.endGameSessionLog()
         }
     }
     
