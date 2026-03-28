@@ -53,6 +53,8 @@ class ImportHandler {
                             (title: "Cancel", style: .cancel, handler: nil)
                         ]
                     )
+
+                    return
                 }
                 
                 let fileManager = FileManager.default
@@ -64,6 +66,11 @@ class ImportHandler {
                 }
                 
                 let destinationURL = romsDirectory.appendingPathComponent(url.lastPathComponent)
+
+                if fileManager.fileExists(atPath: destinationURL.path) {
+                    try fileManager.removeItem(at: destinationURL)
+                }
+
                 try fileManager.copyItem(at: url, to: destinationURL)
                 
                 Ryujinx.shared.games = Ryujinx.shared.loadGames()

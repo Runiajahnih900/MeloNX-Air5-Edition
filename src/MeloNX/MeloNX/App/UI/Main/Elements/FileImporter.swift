@@ -55,9 +55,17 @@ class FileImporterManager: NSObject, ObservableObject, UIDocumentPickerDelegate 
     }
     
     private func getTopViewController() -> UIViewController? {
-        guard let rootViewController = AppDelegate.window?.rootViewController else {
+        let rootViewController = AppDelegate.window?.rootViewController
+            ?? UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .flatMap { $0.windows }
+                .first(where: { $0.isKeyWindow })?
+                .rootViewController
+
+        guard let rootViewController else {
             return nil
         }
+
         return topMost(of: rootViewController)
     }
 

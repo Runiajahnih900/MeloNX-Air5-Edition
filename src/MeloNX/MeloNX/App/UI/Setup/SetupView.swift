@@ -401,14 +401,12 @@ struct SetupView: View {
             var importedFileNames = Set<String>()
             
             for fileURL in selectedFiles {
-                guard fileURL.startAccessingSecurityScopedResource() else {
-                    alertMessage = "Permission denied to access file"
-                    showAlert = true
-                    return
-                }
+                let hasSecurityScope = fileURL.startAccessingSecurityScopedResource()
                 
                 defer {
-                    fileURL.stopAccessingSecurityScopedResource()
+                    if hasSecurityScope {
+                        fileURL.stopAccessingSecurityScopedResource()
+                    }
                 }
 
                 let fileName = fileURL.lastPathComponent
@@ -453,7 +451,16 @@ struct SetupView: View {
             }
             
             guard fileURL.startAccessingSecurityScopedResource() else {
-                alertMessage = "Permission denied to access file"
+                let (string, isErr) = RyujinxBridge.installFirmware(at: fileURL.path)
+                if isErr {
+                    alertMessage = string
+                    showAlert = true
+                    return
+                }
+
+                Ryujinx.shared.firmwareversion = string
+                firmImported = (Ryujinx.shared.firmwareversion == "" ? "0" : Ryujinx.shared.firmwareversion) != "0"
+                alertMessage = "Firmware installed successfully"
                 showAlert = true
                 return
             }
