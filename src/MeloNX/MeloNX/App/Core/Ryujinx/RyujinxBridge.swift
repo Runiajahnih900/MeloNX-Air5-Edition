@@ -10,6 +10,19 @@ import Darwin
 
 final class RyujinxBridge {
     private typealias UpdateSettingsExternalFn = @convention(c) (Int32, UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>) -> Int32
+    private typealias SetViewSizeFn = @convention(c) (Int32, Int32) -> Void
+    private typealias TouchPointFn = @convention(c) (Float, Float, Int32) -> Void
+    private typealias TouchEndedFn = @convention(c) (Int32) -> Void
+
+    private static let processHandle = dlopen(nil, RTLD_NOW)
+
+    private static func resolveSymbol<T>(_ name: String, as type: T.Type) -> T? {
+        guard let processHandle, let symbol = dlsym(processHandle, name) else {
+            return nil
+        }
+
+        return unsafeBitCast(symbol, to: type)
+    }
 
     static func initialize() {
         SN_initialize()
@@ -69,23 +82,20 @@ final class RyujinxBridge {
 
     static func updateSettingsExternal(argv: [String]) -> Int {
         return argv.withCStrings { cStrings, argc in
-            guard let processHandle = dlopen(nil, RTLD_NOW) else {
+            guard let updateFn = resolveSymbol("update_settings_external", as: UpdateSettingsExternalFn.self) else {
                 return -1
             }
 
-            defer { dlclose(processHandle) }
-
-            guard let symbol = dlsym(processHandle, "update_settings_external") else {
-                return -1
-            }
-
-            let updateFn = unsafeBitCast(symbol, to: UpdateSettingsExternalFn.self)
             return Int(updateFn(argc, cStrings))
         }
     }
     
     static func setViewSize(width: Int, height: Int) {
-        SN_set_view_size(Int32(width), Int32(height))
+        guard let setViewSize = resolveSymbol("set_view_size", as: SetViewSizeFn.self) else {
+            return
+        }
+
+        setViewSize(Int32(width), Int32(height))
     }
 
     static var currentFPS: Int {
@@ -102,15 +112,27 @@ final class RyujinxBridge {
 
 
     static func touchBegan(x: Float, y: Float, index: Int) {
-        SN_touch_began(x, y, Int32(index))
+        guard let touchBegan = resolveSymbol("touch_began", as: TouchPointFn.self) else {
+            return
+        }
+
+        touchBegan(x, y, Int32(index))
     }
 
     static func touchMoved(x: Float, y: Float, index: Int) {
-        SN_touch_moved(x, y, Int32(index))
+        guard let touchMoved = resolveSymbol("touch_moved", as: TouchPointFn.self) else {
+            return
+        }
+
+        touchMoved(x, y, Int32(index))
     }
 
     static func touchEnded(index: Int) {
-        SN_touch_ended(Int32(index))
+        guard let touchEnded = resolveSymbol("touch_ended", as: TouchEndedFn.self) else {
+            return
+        }
+
+        touchEnded(Int32(index))
     }
 
     static func setNativeWindow(_ layerPtr: UnsafeMutableRawPointer) {
@@ -224,15 +246,6 @@ func SN_get_game_volume() -> Float
 @_silgen_name("set_game_volume")
 func SN_set_game_volume(_ vol: Float)
 
-@_silgen_name("touch_began")
-func SN_touch_began(_ x: Float, _ y: Float, _ index: Int32)
-
-@_silgen_name("touch_moved")
-func SN_touch_moved(_ x: Float, _ y: Float, _ index: Int32)
-
-@_silgen_name("touch_ended")
-func SN_touch_ended(_ index: Int32)
-
 @_silgen_name("refresh_account_manager")
 func SN_refresh_account_manager()
 
@@ -247,9 +260,6 @@ func SN_close_user(_ userid: UnsafePointer<CChar>!)
 
 @_silgen_name("get_avatars")
 func SN_get_avatars() -> AvatarArray
-
-@_silgen_name("set_view_size")
-func SN_set_view_size(_ width: Int32, _ height: Int32)
 
 @_silgen_name("attach_gamepad")
 func SN_attach_gamepad(_ namePtr: UnsafePointer<CChar>?, _ idPtr: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?

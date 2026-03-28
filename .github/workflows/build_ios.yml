@@ -39,6 +39,8 @@ jobs:
           if [ -f build/xcodebuild.log ]; then
             echo "Showing first 120 xcodebuild error lines:"
             grep -n " error:" build/xcodebuild.log | head -n 120 || true
+            echo "Showing undefined symbol section (if present):"
+            grep -nE "Undefined symbols for architecture|referenced from:|symbol\(s\) not found for architecture" build/xcodebuild.log | head -n 200 || true
           fi
 
       - name: Package to IPA
