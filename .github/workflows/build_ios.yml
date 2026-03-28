@@ -1,0 +1,36 @@
+name: Build MeloNX iOS (TrollStore)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build_ios:
+    name: Build iOS IPA
+    runs-on: macos-14
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build Xcode Project
+        run: |
+          cd src/MeloNX
+          xcodebuild archive -project MeloNX.xcodeproj -scheme MeloNX -configuration Release -archivePath ../../build/MeloNX.xcarchive CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+
+      - name: Package to IPA
+        run: |
+          mkdir -p Payload
+          cp -r build/MeloNX.xcarchive/Products/Applications/MeloNX.app Payload/
+          zip -r9 MeloNX-Air5-Optimized.ipa Payload
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MeloNX-Air5-Optimized
+          path: MeloNX-Air5-Optimized.ipa
