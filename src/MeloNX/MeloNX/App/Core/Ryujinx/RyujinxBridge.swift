@@ -9,7 +9,7 @@ import Foundation
 import Darwin
 
 final class RyujinxBridge {
-    private typealias UpdateSettingsExternalFn = @convention(c) (Int32, UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>!) -> Int32
+    private typealias UpdateSettingsExternalFn = @convention(c) (Int32, UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>) -> Int32
 
     static func initialize() {
         SN_initialize()
