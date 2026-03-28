@@ -6,8 +6,11 @@
 //
 
 import Foundation
+import Darwin
 
 final class RyujinxBridge {
+    private typealias UpdateSettingsExternalFn = @convention(c) (Int32, UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>!) -> Int32
+
     static func initialize() {
         SN_initialize()
     }
@@ -66,7 +69,18 @@ final class RyujinxBridge {
 
     static func updateSettingsExternal(argv: [String]) -> Int {
         return argv.withCStrings { cStrings, argc in
-            Int(SN_update_settings_external(argc, cStrings))
+            guard let processHandle = dlopen(nil, RTLD_NOW) else {
+                return -1
+            }
+
+            defer { dlclose(processHandle) }
+
+            guard let symbol = dlsym(processHandle, "update_settings_external") else {
+                return -1
+            }
+
+            let updateFn = unsafeBitCast(symbol, to: UpdateSettingsExternalFn.self)
+            return Int(updateFn(argc, cStrings))
         }
     }
     
@@ -200,9 +214,6 @@ func SN_main_ryujinx_sdl(_ argc: Int32, _ argv: UnsafeMutablePointer<UnsafeMutab
 
 @_silgen_name("set_gamepad_configuration")
 func SN_set_gamepad_configuration(_ argc: Int32, _ argv: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>!)
-
-@_silgen_name("update_settings_external")
-func SN_update_settings_external(_ argc: Int32, _ argv: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>!) -> Int32
 
 @_silgen_name("get_current_fps")
 func SN_get_current_fps() -> Int32
