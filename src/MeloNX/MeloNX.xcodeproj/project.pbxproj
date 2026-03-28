@@ -470,6 +470,7 @@
 			);
 			inputPaths = (
 				"$(SRCROOT)/../../src/Ryujinx.Headless.SDL2/bin/Release/net8.0/ios-arm64/native/Ryujinx.Headless.SDL2.dylib",
+				"$(SRCROOT)/../../src/Ryujinx.Headless.SDL2/bin/Release/net8.0/ios-arm64/publish/Ryujinx.Headless.SDL2.dylib",
 			);
 			outputFileListPaths = (
 			);
@@ -478,7 +479,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cd ../..\nSRC_NATIVE=\"src/Ryujinx.Headless.SDL2/bin/Release/net8.0/ios-arm64/native/Ryujinx.Headless.SDL2.dylib\"\nSRC_PUBLISH=\"src/Ryujinx.Headless.SDL2/bin/Release/net8.0/ios-arm64/publish/Ryujinx.Headless.SDL2.dylib\"\nDST=\"src/MeloNX/MeloNX/Dependencies/Dynamic\\ Libraries/Ryujinx.Headless.SDL2.dylib\"\n\nif [ -f \"$SRC_NATIVE\" ]; then\n  cp -f \"$SRC_NATIVE\" \"$DST\"\nelif [ -f \"$SRC_PUBLISH\" ]; then\n  cp -f \"$SRC_PUBLISH\" \"$DST\"\nelse\n  echo \"error: Ryujinx.Headless.SDL2.dylib not found in native/publish output\" >&2\n  exit 1\nfi\n";
+			shellScript = "cd ../..\nSRC_NATIVE=\"src/Ryujinx.Headless.SDL2/bin/Release/net8.0/ios-arm64/native/Ryujinx.Headless.SDL2.dylib\"\nSRC_PUBLISH=\"src/Ryujinx.Headless.SDL2/bin/Release/net8.0/ios-arm64/publish/Ryujinx.Headless.SDL2.dylib\"\nDST_DIR=\"src/MeloNX/MeloNX/Dependencies/Dynamic Libraries\"\nDST=\"$DST_DIR/Ryujinx.Headless.SDL2.dylib\"\n\nmkdir -p \"$DST_DIR\"\n\nif [ -f \"$SRC_NATIVE\" ]; then\n  cp -f \"$SRC_NATIVE\" \"$DST\"\nelif [ -f \"$SRC_PUBLISH\" ]; then\n  cp -f \"$SRC_PUBLISH\" \"$DST\"\nelif [ -f \"$DST\" ]; then\n  echo \"warning: source dylib not found, using existing $DST\"\nelse\n  echo \"error: Ryujinx.Headless.SDL2.dylib not found in native/publish output and destination missing\" >&2\n  exit 1\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
