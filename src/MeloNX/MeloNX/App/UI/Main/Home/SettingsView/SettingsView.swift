@@ -815,6 +815,13 @@ struct SettingsViewNew: View {
                 
                 Divider()
                 SettingsToggle(isOn: config.disablePTC.reversed, icon: "cpu", label: "PTC", infoMessage: "Saves translated JIT functions so that they do not need to be translated every time the game loads.\n\nReduces stuttering and significantly speeds up boot times after the first boot of a game.\n\nLeave ON if unsure.")
+                
+                if let gpuInfo = getGPUInfo(), gpuInfo.hasPrefix("Apple M") {
+                    if checkAppEntitlement("com.apple.private.hypervisor") {
+                        Divider()
+                        SettingsToggle(isOn: config.hypervisor, icon: "bolt", label: "Hypervisor", infoMessage: "Runs CPU natively using Apple's Hypervisor. Reduces RAM usage significantly on M-series chips.")
+                    }
+                }
             }
         }
     }

@@ -83,8 +83,8 @@ class Ryujinx : ObservableObject {
         var listinputids: Bool = false
         var aspectRatio: AspectRatio = .fixed16x9
         var memoryManagerMode: String = "HostMappedUnsafe"
-        var enableShaderCache: Bool = false
-        var hypervisor: Bool = false
+        var enableShaderCache: Bool = true
+        var hypervisor: Bool = true
         var enableDockedMode: Bool = false
         var enableTextureRecompression: Bool = true
         var additionalArgs: [String] = []
@@ -93,7 +93,7 @@ class Ryujinx : ObservableObject {
         var ignoreMissingServices: Bool = false
         var expandRam: Bool = false
         var dfsIntegrityChecks: Bool = false
-        var disablePTC: Bool = false
+        var disablePTC: Bool = true
         var disablevsync: Bool = false
         var language: SystemLanguage = .americanEnglish
         var regioncode: SystemRegionCode = .usa
@@ -169,16 +169,14 @@ class Ryujinx : ObservableObject {
                 let parsedLogs = extractExceptionInfo(logs)
                 if let parsedLogs {
                     Task { @MainActor in
-                        let result = Array(logs.suffix(from: parsedLogs.lineIndex))
-                        
                         let dateFormatter = DateFormatter()
                         dateFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
                         let currentDate = Date()
                         let dateString = dateFormatter.string(from: currentDate)
                         let path = URL.documentsDirectory.appendingPathComponent("StackTrace").appendingPathComponent("StackTrace-\(dateString).txt").path
                         
-                        self.saveArrayAsTextFile(strings: result, filePath: path)
-                        
+                        // Save the ENTIRE log history, not just the exception trace, for better debugging
+                        self.saveArrayAsTextFile(strings: logs, filePath: path)
                         
                         presentAlert(title: "MeloNX Crashed!", message: parsedLogs.exceptionType + ": " + parsedLogs.message, imageName: "sad_mac") {
                             UIApplication.shared.perform(#selector(NSXPCConnection.suspend))
@@ -189,7 +187,16 @@ class Ryujinx : ObservableObject {
                     }
                 } else {
                     Task { @MainActor in
-                        presentAlert(title: "MeloNX Crashed!", message:  "Unknown Error", imageName: "sad_mac") {
+                        let dateFormatter = DateFormatter()
+                        dateFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+                        let currentDate = Date()
+                        let dateString = dateFormatter.string(from: currentDate)
+                        let path = URL.documentsDirectory.appendingPathComponent("StackTrace").appendingPathComponent("NativeCrash-\(dateString).txt").path
+                        
+                        // Save logs for Unknown/Native crashes too! (Previously this was lost)
+                        self.saveArrayAsTextFile(strings: logs, filePath: path)
+                        
+                        presentAlert(title: "MeloNX Crashed!", message: "Native/Unknown Error. Full logs saved to StackTrace folder.", imageName: "sad_mac") {
                             UIApplication.shared.perform(#selector(NSXPCConnection.suspend))
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                                 exit(0)

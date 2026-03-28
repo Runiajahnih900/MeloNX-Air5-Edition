@@ -486,10 +486,7 @@ struct PerGameSettingsView: View {
                     if let gpuInfo = getGPUInfo(), gpuInfo.hasPrefix("Apple M") {
                         Divider()
                         
-                        if #available(iOS 16.4, *) {
-                            PerSettingsToggle(isOn: .constant(false), icon: "bolt", label: "Hypervisor")
-                                .disabled(true)
-                        } else if checkAppEntitlement("com.apple.private.hypervisor") {
+                        if checkAppEntitlement("com.apple.private.hypervisor") {
                             PerSettingsToggle(isOn: configBinding(\.hypervisor), icon: "bolt", label: "Hypervisor")
                         }
                     }
