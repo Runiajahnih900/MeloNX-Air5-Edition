@@ -26,6 +26,14 @@ jobs:
       - name: Show Xcode Version
         run: xcodebuild -version
 
+      - name: Build Native Ryujinx dylib
+        run: |
+          chmod +x distribution/ios/get_dotnet.sh
+          chmod +x distribution/ios/xc-compile.sh
+          ./distribution/ios/xc-compile.sh
+          ls -la "src/MeloNX/MeloNX/Dependencies/Dynamic Libraries"
+          test -f "src/MeloNX/MeloNX/Dependencies/Dynamic Libraries/Ryujinx.Headless.SDL2.dylib"
+
       - name: Build Xcode Project
         run: |
           set -o pipefail
