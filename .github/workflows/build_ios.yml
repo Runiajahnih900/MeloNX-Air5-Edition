@@ -57,6 +57,26 @@ jobs:
           cd src/MeloNX
           xcodebuild archive -project MeloNX.xcodeproj -scheme MeloNX -configuration Release -destination "generic/platform=iOS" -archivePath ../../build/MeloNX.xcarchive CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO | tee ../../build/xcodebuild.log
 
+      - name: Inject Increased Memory Entitlement
+        run: |
+          APP_PATH="build/MeloNX.xcarchive/Products/Applications/MeloNX.app"
+          ENT_PATH="src/MeloNX/MeloNX/MeloNX.entitlements"
+
+          if [ ! -d "$APP_PATH" ]; then
+            echo "error: App bundle not found at $APP_PATH"
+            exit 1
+          fi
+
+          if [ ! -f "$ENT_PATH" ]; then
+            echo "error: Entitlements file not found at $ENT_PATH"
+            exit 1
+          fi
+
+          codesign --force --deep --sign - --entitlements "$ENT_PATH" "$APP_PATH"
+
+          echo "Embedded app entitlements:"
+          codesign -d --entitlements :- "$APP_PATH" 2>/dev/null | cat
+
       - name: Show Build Errors
         if: failure()
         run: |
