@@ -21,15 +21,25 @@ jobs:
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '16'
+          xcode-version: latest-stable
 
       - name: Show Xcode Version
         run: xcodebuild -version
 
       - name: Build Xcode Project
         run: |
+          set -o pipefail
+          mkdir -p build
           cd src/MeloNX
-          xcodebuild archive -project MeloNX.xcodeproj -scheme MeloNX -configuration Release -archivePath ../../build/MeloNX.xcarchive CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+          xcodebuild archive -project MeloNX.xcodeproj -scheme MeloNX -configuration Release -destination "generic/platform=iOS" -archivePath ../../build/MeloNX.xcarchive CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO | tee ../../build/xcodebuild.log
+
+      - name: Show Build Errors
+        if: failure()
+        run: |
+          if [ -f build/xcodebuild.log ]; then
+            echo "Showing first 120 xcodebuild error lines:"
+            grep -n " error:" build/xcodebuild.log | head -n 120 || true
+          fi
 
       - name: Package to IPA
         run: |
@@ -42,3 +52,11 @@ jobs:
         with:
           name: MeloNX-Air5-Optimized
           path: MeloNX-Air5-Optimized.ipa
+
+      - name: Upload Build Log Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: build/xcodebuild.log
+          if-no-files-found: ignore
