@@ -1,0 +1,32 @@
+# Xcode build artifacts
+DerivedData/
+*.xcuserstate
+*.xcuserdatad/
+xcuserdata/
+*.xccheckout
+*.moved-aside
+
+# Build products
+build/
+*.o
+*.a
+*.dylib
+*.dSYM
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.log
+
+# Secrets / certificates
+*.p8
+*.p12
+*.mobileprovision
+AuthKey_*.p8

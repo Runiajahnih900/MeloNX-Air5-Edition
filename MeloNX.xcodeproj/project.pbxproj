@@ -1,0 +1,374 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A001 /* MeloNXApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F001 /* MeloNXApp.swift */; };
+		A002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F002 /* ContentView.swift */; };
+		A003 /* EmulatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F003 /* EmulatorView.swift */; };
+		A004 /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F004 /* LibraryView.swift */; };
+		A005 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F005 /* SettingsView.swift */; };
+		A006 /* EmulatorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F006 /* EmulatorViewModel.swift */; };
+		A007 /* CPUCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F007 /* CPUCore.swift */; };
+		A008 /* MemoryBus.swift in Sources */ = {isa = PBXBuildFile; fileRef = F008 /* MemoryBus.swift */; };
+		A009 /* GPUEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F009 /* GPUEngine.swift */; };
+		A010 /* AudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F010 /* AudioEngine.swift */; };
+		A011 /* iPadAir5Device.swift in Sources */ = {isa = PBXBuildFile; fileRef = F011 /* iPadAir5Device.swift */; };
+		A012 /* M1Optimizations.swift in Sources */ = {isa = PBXBuildFile; fileRef = F012 /* M1Optimizations.swift */; };
+		A013 /* MetalRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F013 /* MetalRenderer.swift */; };
+		A014 /* Shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = F014 /* Shaders.metal */; };
+		T001 /* MemoryBusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TF001 /* MemoryBusTests.swift */; };
+		T002 /* iPadAir5DeviceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TF002 /* iPadAir5DeviceTests.swift */; };
+		T003 /* AudioRingBufferTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TF003 /* AudioRingBufferTests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		F001 /* MeloNXApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeloNXApp.swift; sourceTree = "<group>"; };
+		F002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		F003 /* EmulatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmulatorView.swift; sourceTree = "<group>"; };
+		F004 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
+		F005 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		F006 /* EmulatorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmulatorViewModel.swift; sourceTree = "<group>"; };
+		F007 /* CPUCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CPUCore.swift; sourceTree = "<group>"; };
+		F008 /* MemoryBus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryBus.swift; sourceTree = "<group>"; };
+		F009 /* GPUEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GPUEngine.swift; sourceTree = "<group>"; };
+		F010 /* AudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEngine.swift; sourceTree = "<group>"; };
+		F011 /* iPadAir5Device.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iPadAir5Device.swift; sourceTree = "<group>"; };
+		F012 /* M1Optimizations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = M1Optimizations.swift; sourceTree = "<group>"; };
+		F013 /* MetalRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalRenderer.swift; sourceTree = "<group>"; };
+		F014 /* Shaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Shaders.metal; sourceTree = "<group>"; };
+		TF001 /* MemoryBusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryBusTests.swift; sourceTree = "<group>"; };
+		TF002 /* iPadAir5DeviceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iPadAir5DeviceTests.swift; sourceTree = "<group>"; };
+		TF003 /* AudioRingBufferTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRingBufferTests.swift; sourceTree = "<group>"; };
+		PROD_APP /* MeloNX.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MeloNX.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		PROD_TEST /* MeloNXTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MeloNXTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		ROOT = {
+			isa = PBXGroup;
+			children = (
+				SRC_GROUP /* Sources */,
+				TEST_GROUP /* Tests */,
+				PRODUCTS_GROUP /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		PRODUCTS_GROUP = {
+			isa = PBXGroup;
+			children = (
+				PROD_APP,
+				PROD_TEST,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		SRC_GROUP = {
+			isa = PBXGroup;
+			children = (
+				F001,
+				UI_GROUP,
+				CORE_GROUP,
+				PLATFORM_GROUP,
+			);
+			name = Sources;
+			path = Sources/MeloNX;
+			sourceTree = "<group>";
+		};
+		UI_GROUP = {
+			isa = PBXGroup;
+			children = (
+				F002, F003, F004, F005,
+				F006,
+			);
+			name = UI;
+			sourceTree = "<group>";
+		};
+		CORE_GROUP = {
+			isa = PBXGroup;
+			children = (
+				F007, F008, F009, F010,
+			);
+			name = Core;
+			sourceTree = "<group>";
+		};
+		PLATFORM_GROUP = {
+			isa = PBXGroup;
+			children = (
+				F011, F012, F013, F014,
+			);
+			name = Platform;
+			sourceTree = "<group>";
+		};
+		TEST_GROUP = {
+			isa = PBXGroup;
+			children = (
+				TF001, TF002, TF003,
+			);
+			name = Tests;
+			path = Tests/MeloNXTests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		APP_TARGET /* MeloNX */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = APP_CONFIG_LIST;
+			buildPhases = (
+				APP_SOURCES,
+			);
+			buildRules = ();
+			dependencies = ();
+			name = MeloNX;
+			productName = MeloNX;
+			productReference = PROD_APP;
+			productType = "com.apple.product-type.application";
+		};
+		TEST_TARGET /* MeloNXTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = TEST_CONFIG_LIST;
+			buildPhases = (
+				TEST_SOURCES,
+			);
+			buildRules = ();
+			dependencies = ();
+			name = MeloNXTests;
+			productName = MeloNXTests;
+			productReference = PROD_TEST;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		PROJECT /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					APP_TARGET = {
+						CreatedOnToolsVersion = 15.0;
+					};
+					TEST_TARGET = {
+						CreatedOnToolsVersion = 15.0;
+						TestTargetID = APP_TARGET;
+					};
+				};
+			};
+			buildConfigurationList = PROJ_CONFIG_LIST;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = id;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				id,
+				en,
+				Base,
+			);
+			mainGroup = ROOT;
+			productRefGroup = PRODUCTS_GROUP;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				APP_TARGET /* MeloNX */,
+				TEST_TARGET /* MeloNXTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		APP_SOURCES = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A001, A002, A003, A004, A005,
+				A006, A007, A008, A009, A010,
+				A011, A012, A013, A014,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		TEST_SOURCES = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				T001, T002, T003,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		APP_DEBUG = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIRequiresFullScreen = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = "1.0";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.melonx.air5edition";
+				PRODUCT_NAME = "MeloNX Air5 Edition";
+				SUPPORTED_PLATFORMS = ipados;
+				SUPPORTS_MAC_DESIGNED_FOR_IPAD_DESTINATION = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 2;
+			};
+			name = Debug;
+		};
+		APP_RELEASE = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIRequiresFullScreen = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = "1.0";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.melonx.air5edition";
+				PRODUCT_NAME = "MeloNX Air5 Edition";
+				SUPPORTED_PLATFORMS = ipados;
+				SUPPORTS_MAC_DESIGNED_FOR_IPAD_DESTINATION = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 2;
+			};
+			name = Release;
+		};
+		TEST_DEBUG = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = "1.0";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.melonx.air5edition.tests";
+				PRODUCT_NAME = MeloNXTests;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 2;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MeloNX.app/MeloNX";
+			};
+			name = Debug;
+		};
+		TEST_RELEASE = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = "1.0";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.melonx.air5edition.tests";
+				PRODUCT_NAME = MeloNXTests;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 2;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MeloNX.app/MeloNX";
+			};
+			name = Release;
+		};
+		PROJ_DEBUG = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = "DEBUG=1 $(inherited)";
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		PROJ_RELEASE = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		PROJ_CONFIG_LIST = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				PROJ_DEBUG,
+				PROJ_RELEASE,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		APP_CONFIG_LIST = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				APP_DEBUG,
+				APP_RELEASE,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		TEST_CONFIG_LIST = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				TEST_DEBUG,
+				TEST_RELEASE,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+	};
+	rootObject = PROJECT /* Project object */;
+}
