@@ -388,12 +388,17 @@ struct SetupView: View {
     private func handleKeysImport(result: Result<[URL], Error>) {
         do {
             let selectedFiles = try result.get()
-            
-            guard selectedFiles.count == 2 else {
-                alertMessage = "Please select exactly 2 key files"
+
+            guard !selectedFiles.isEmpty else {
+                alertMessage = "No key files selected"
                 showAlert = true
                 return
             }
+
+            let systemDirectory = URL.documentsDirectory.appendingPathComponent("system", isDirectory: true)
+            try FileManager.default.createDirectory(at: systemDirectory, withIntermediateDirectories: true)
+
+            var importedFileNames = Set<String>()
             
             for fileURL in selectedFiles {
                 guard fileURL.startAccessingSecurityScopedResource() else {
@@ -405,14 +410,30 @@ struct SetupView: View {
                 defer {
                     fileURL.stopAccessingSecurityScopedResource()
                 }
-                
-                let destinationURL = URL.documentsDirectory.appendingPathComponent("system").appendingPathComponent(fileURL.lastPathComponent)
-                
+
+                let fileName = fileURL.lastPathComponent
+                let destinationURL = systemDirectory.appendingPathComponent(fileName)
+
+                if FileManager.default.fileExists(atPath: destinationURL.path) {
+                    try FileManager.default.removeItem(at: destinationURL)
+                }
+
                 try FileManager.default.copyItem(at: fileURL, to: destinationURL)
+                importedFileNames.insert(fileName.lowercased())
+            }
+
+            if !Ryujinx.shared.checkIfKeysImported() {
+                alertMessage = "Import selesai, tapi prod.keys belum ada. Pastikan file prod.keys ikut dipilih."
+                showAlert = true
+                return
             }
             
             keysImported = Ryujinx.shared.checkIfKeysImported()
-            alertMessage = "Keys imported successfully"
+            if importedFileNames.contains("title.keys") {
+                alertMessage = "Keys imported successfully"
+            } else {
+                alertMessage = "prod.keys imported. title.keys belum dipilih (opsional)."
+            }
             showAlert = true
             
         } catch {
@@ -447,6 +468,7 @@ struct SetupView: View {
             if isErr {
                 alertMessage = string
                 showAlert = true
+                return
             } else {
                 Ryujinx.shared.firmwareversion = string
             }
