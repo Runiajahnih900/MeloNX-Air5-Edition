@@ -112,14 +112,19 @@ class LaunchGameHandler: ObservableObject {
         if !ProcessInfo.processInfo.isiOSAppOnMac {
             let normalizedTitleId = currentGame.titleId.lowercased()
             if normalizedTitleId == "010071b00f63a000" {
-                if config.memoryManagerMode != "HostMapped" {
-                    print("[MeloNX] Eastward stability profile: memory mode \(config.memoryManagerMode) -> HostMapped")
-                    config.memoryManagerMode = "HostMapped"
+                if config.memoryManagerMode != "SoftwarePageTable" {
+                    print("[MeloNX] Eastward stability profile: memory mode \(config.memoryManagerMode) -> SoftwarePageTable")
+                    config.memoryManagerMode = "SoftwarePageTable"
                 }
 
                 if config.expandRam {
                     print("[MeloNX] Eastward stability profile: disabling Expand Guest RAM")
                     config.expandRam = false
+                }
+
+                if !config.disablePTC {
+                    print("[MeloNX] Eastward stability profile: disabling PTC")
+                    config.disablePTC = true
                 }
 
                 if config.ignoreMissingServices {
@@ -149,10 +154,10 @@ class LaunchGameHandler: ObservableObject {
             config.inputids.append("0")
         }
 
-        LogCapture.shared.logDiagnostic("Config summary: memoryMode=\(config.memoryManagerMode), expandRam=\(config.expandRam), hypervisor=\(config.hypervisor), debugLogs=\(config.debuglogs), traceLogs=\(config.tracelogs), ignoreMissingServices=\(config.ignoreMissingServices), controllerCount=\(config.inputids.count)")
+        LogCapture.shared.logDiagnostic("Config summary: memoryMode=\(config.memoryManagerMode), disablePTC=\(config.disablePTC), expandRam=\(config.expandRam), hypervisor=\(config.hypervisor), debugLogs=\(config.debuglogs), traceLogs=\(config.tracelogs), ignoreMissingServices=\(config.ignoreMissingServices), controllerCount=\(config.inputids.count)")
         
         print(config.inputids)
-        configureEnvironmentVariables()
+        configureEnvironmentVariables(for: config)
         
         do {
             try ryujinx.start(with: config)
@@ -162,7 +167,7 @@ class LaunchGameHandler: ObservableObject {
         }
     }
     
-    private func configureEnvironmentVariables() {
+    private func configureEnvironmentVariables(for config: Ryujinx.Arguments) {
         var useDualMappedJIT: Bool
         if #available(iOS 19, *) {
             useDualMappedJIT = nativeSettings.setting(forKey: "DUAL_MAPPED_JIT", default: true).value
@@ -171,7 +176,8 @@ class LaunchGameHandler: ObservableObject {
         }
 
         if !ProcessInfo.processInfo.isiOSAppOnMac,
-           currentGame?.titleId.lowercased() == "010071b00f63a000" {
+           currentGame?.titleId.lowercased() == "010071b00f63a000",
+           config.memoryManagerMode != "SoftwarePageTable" {
             useDualMappedJIT = true
         }
         
