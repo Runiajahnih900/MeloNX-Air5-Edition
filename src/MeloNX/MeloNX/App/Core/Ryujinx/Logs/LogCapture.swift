@@ -7,10 +7,15 @@
 
 
 import Foundation
+#if canImport(UIKit)
+import UIKit
+#endif
 
 final class LogCapture: ObservableObject {
     static let shared = LogCapture()
     private static let coreLogRegex = try? NSRegularExpression(pattern: "\\d{2}:\\d{2}:\\d{2}\\.\\d{3} \\|[A-Z]+\\|", options: .caseInsensitive)
+    private static let activeSessionPathKey = "activeGameSessionLogPath"
+    private static let activeSessionStartedAtKey = "activeGameSessionStart"
 
     private var stdoutPipe: Pipe?
     private var stderrPipe: Pipe?
@@ -21,7 +26,9 @@ final class LogCapture: ObservableObject {
     public private(set) var capturedLogs: [String] = []
     private let fileIOQueue = DispatchQueue(label: "com.melonx.logcapture.file-io")
     private var sessionFileHandle: FileHandle?
+    private var sessionLogURL: URL?
     private let maxCapturedLogs = 1500
+    private let maxSessionLogBytes: UInt64 = 64 * 1024 * 1024
     private let mirrorLogsToOriginalFD = UserDefaults.standard.bool(forKey: "mirrorLogsToOriginalFD")
 
     lazy var logs: AsyncStream<String> = {
@@ -36,6 +43,7 @@ final class LogCapture: ObservableObject {
     private init() {
         originalStdout = dup(STDOUT_FILENO)
         originalStderr = dup(STDERR_FILENO)
+        setupLifecycleDiagnostics()
         startCapturing()
     }
 
@@ -90,6 +98,7 @@ final class LogCapture: ObservableObject {
 
     func startGameSessionLog(gameTitle: String, titleId: String) {
         capturedLogs.removeAll(keepingCapacity: true)
+        markPreviousSessionAsAbnormalIfNeeded()
 
         let safeTitle = sanitizeFilenameComponent(gameTitle, fallback: "UnknownGame")
         let safeTitleId = sanitizeFilenameComponent(titleId, fallback: "UnknownTitleId")
@@ -101,6 +110,7 @@ final class LogCapture: ObservableObject {
         let logName = "MeloNX-GameLog-\(timestamp)-\(safeTitle)-\(safeTitleId).log"
         let logsDirectory = URL.documentsDirectory.appendingPathComponent("logs")
         let logURL = logsDirectory.appendingPathComponent(logName)
+        sessionLogURL = logURL
 
         fileIOQueue.sync {
             closeSessionFileHandleLocked()
@@ -115,7 +125,15 @@ final class LogCapture: ObservableObject {
                 try handle.seekToEnd()
                 sessionFileHandle = handle
 
-                let header = "Session started: \(Date())\nGame: \(gameTitle)\nTitle ID: \(titleId)\n\n"
+                let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
+                let appBuild = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown"
+                let osVersion = ProcessInfo.processInfo.operatingSystemVersionString
+#if canImport(UIKit)
+                let deviceName = UIDevice.current.model
+#else
+                let deviceName = "Unknown"
+#endif
+                let header = "Session started: \(Date())\nGame: \(gameTitle)\nTitle ID: \(titleId)\nApp: \(appVersion) (\(appBuild))\nOS: \(osVersion)\nDevice: \(deviceName)\n\n"
                 if let data = header.data(using: .utf8) {
                     try handle.write(contentsOf: data)
                 }
@@ -123,6 +141,9 @@ final class LogCapture: ObservableObject {
                 sessionFileHandle = nil
             }
         }
+
+        UserDefaults.standard.set(logURL.path, forKey: Self.activeSessionPathKey)
+        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: Self.activeSessionStartedAtKey)
     }
 
     private func appendCapturedLog(_ logLine: String) {
@@ -133,9 +154,19 @@ final class LogCapture: ObservableObject {
     }
 
     func endGameSessionLog() {
+        logDiagnostic("Session finished normally")
+
         fileIOQueue.sync {
             closeSessionFileHandleLocked()
         }
+
+        UserDefaults.standard.removeObject(forKey: Self.activeSessionPathKey)
+        UserDefaults.standard.removeObject(forKey: Self.activeSessionStartedAtKey)
+        sessionLogURL = nil
+    }
+
+    func logDiagnostic(_ message: String) {
+        appendToSessionLog("[DIAG] \(message)")
     }
 
     private func appendToSessionLog(_ logLine: String) {
@@ -146,7 +177,14 @@ final class LogCapture: ObservableObject {
             }
 
             do {
-                try sessionFileHandle.seekToEnd()
+                let fileSize = try sessionFileHandle.seekToEnd()
+                if fileSize >= self.maxSessionLogBytes {
+                    try sessionFileHandle.truncate(atOffset: 0)
+                    let header = "[DIAG] Session log rotated after reaching \(self.maxSessionLogBytes / (1024 * 1024))MB to keep latest crash context.\n"
+                    if let headerData = header.data(using: .utf8) {
+                        try sessionFileHandle.write(contentsOf: headerData)
+                    }
+                }
                 try sessionFileHandle.write(contentsOf: data)
             } catch {
                 self.closeSessionFileHandleLocked()
@@ -156,6 +194,10 @@ final class LogCapture: ObservableObject {
 
     private func closeSessionFileHandleLocked() {
         do {
+            if let sessionFileHandle,
+               let footerData = "Session ended: \(Date())\n".data(using: .utf8) {
+                try sessionFileHandle.write(contentsOf: footerData)
+            }
             try sessionFileHandle?.close()
         } catch {
             // Ignore close failures; log capture should not crash the app.
@@ -170,7 +212,11 @@ final class LogCapture: ObservableObject {
     }
 
     private var includeTraceLogsInSession: Bool {
-        UserDefaults.standard.bool(forKey: "includeTraceLogsInSession")
+        if let explicit = UserDefaults.standard.object(forKey: "includeTraceLogsInSession") as? Bool {
+            return explicit
+        }
+
+        return UserDefaults.standard.object(forKey: "crashForensicsMode") as? Bool ?? true
     }
 
     private func isTraceLogLine(_ line: String) -> Bool {
@@ -190,6 +236,55 @@ final class LogCapture: ObservableObject {
                 return line.trimmingCharacters(in: .whitespacesAndNewlines)
             }
             .joined(separator: "\n")
+    }
+
+    private func markPreviousSessionAsAbnormalIfNeeded() {
+        guard let previousPath = UserDefaults.standard.string(forKey: Self.activeSessionPathKey),
+              !previousPath.isEmpty else {
+            return
+        }
+
+        let previousURL = URL(fileURLWithPath: previousPath)
+        let startedAt = UserDefaults.standard.double(forKey: Self.activeSessionStartedAtKey)
+        let uptime = startedAt > 0 ? String(format: "%.1f", Date().timeIntervalSince1970 - startedAt) : "unknown"
+        let abnormalNote = "\n[DIAG] Previous session ended unexpectedly (force close / crash / OS kill).\n[DIAG] Approx uptime before abnormal end: \(uptime)s\n"
+
+        if let data = abnormalNote.data(using: .utf8),
+           FileManager.default.fileExists(atPath: previousURL.path),
+           let handle = try? FileHandle(forWritingTo: previousURL) {
+            do {
+                try handle.seekToEnd()
+                try handle.write(contentsOf: data)
+                try handle.close()
+            } catch {
+                try? handle.close()
+            }
+        }
+
+        UserDefaults.standard.removeObject(forKey: Self.activeSessionPathKey)
+        UserDefaults.standard.removeObject(forKey: Self.activeSessionStartedAtKey)
+    }
+
+    private func setupLifecycleDiagnostics() {
+#if canImport(UIKit)
+        NotificationCenter.default.addObserver(forName: UIApplication.didReceiveMemoryWarningNotification, object: nil, queue: nil) { [weak self] _ in
+            self?.logDiagnostic("iOS memory warning received")
+        }
+
+        NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: nil) { [weak self] _ in
+            self?.logDiagnostic("App entered background")
+        }
+
+        NotificationCenter.default.addObserver(forName: UIApplication.willTerminateNotification, object: nil, queue: nil) { [weak self] _ in
+            self?.logDiagnostic("UIApplication.willTerminate received")
+            self?.endGameSessionLog()
+        }
+
+        NotificationCenter.default.addObserver(forName: ProcessInfo.thermalStateDidChangeNotification, object: nil, queue: nil) { [weak self] _ in
+            let thermalState = ProcessInfo.processInfo.thermalState
+            self?.logDiagnostic("Thermal state changed: \(thermalState.rawValue)")
+        }
+#endif
     }
 
     private func cleanLog(_ raw: String) -> (String, String)? {

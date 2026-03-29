@@ -142,6 +142,8 @@ class Ryujinx : ObservableObject {
             
             do {
                 let args = self.buildCommandLineArgs(from: config)
+                LogCapture.shared.logDiagnostic("Launch argv count=\(args.count)")
+                LogCapture.shared.logDiagnostic("Launch argv=\(args.joined(separator: " "))")
                 let accessing = url?.startAccessingSecurityScopedResource()
                 
                 // Start the emulation
@@ -163,6 +165,8 @@ class Ryujinx : ObservableObject {
                 Task { @MainActor in
                     self.isRunning = false
                 }
+
+                LogCapture.shared.logDiagnostic("Caught exception in start loop: \(error)")
 
                 LogCapture.shared.endGameSessionLog()
                 
@@ -524,14 +528,15 @@ class Ryujinx : ObservableObject {
         }
 
         if !ProcessInfo.processInfo.isiOSAppOnMac {
+            let crashForensicsMode = NativeSettingsManager.shared.setting(forKey: "crashForensicsMode", default: true).value
             let allowGuestLogs = NativeSettingsManager.shared.setting(forKey: "allowGuestLogs", default: false).value
             let allowStubLogs = NativeSettingsManager.shared.setting(forKey: "allowStubLogs", default: false).value
 
-            if !allowGuestLogs {
+            if !crashForensicsMode && !allowGuestLogs {
                 args.append("--disable-guest-logs")
             }
 
-            if !allowStubLogs {
+            if !crashForensicsMode && !allowStubLogs {
                 args.append("--disable-stub-logs")
             }
         }

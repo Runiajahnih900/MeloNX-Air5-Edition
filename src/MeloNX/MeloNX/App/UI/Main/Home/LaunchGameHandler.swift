@@ -135,6 +135,8 @@ class LaunchGameHandler: ObservableObject {
         if config.inputids.isEmpty {
             config.inputids.append("0")
         }
+
+        LogCapture.shared.logDiagnostic("Config summary: memoryMode=\(config.memoryManagerMode), expandRam=\(config.expandRam), hypervisor=\(config.hypervisor), debugLogs=\(config.debuglogs), traceLogs=\(config.tracelogs), ignoreMissingServices=\(config.ignoreMissingServices), controllerCount=\(config.inputids.count)")
         
         print(config.inputids)
         configureEnvironmentVariables()
