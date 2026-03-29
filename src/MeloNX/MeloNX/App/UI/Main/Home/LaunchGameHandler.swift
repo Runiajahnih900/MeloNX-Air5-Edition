@@ -112,9 +112,9 @@ class LaunchGameHandler: ObservableObject {
         if !ProcessInfo.processInfo.isiOSAppOnMac {
             let normalizedTitleId = currentGame.titleId.lowercased()
             if normalizedTitleId == "010071b00f63a000" {
-                if config.memoryManagerMode != "SoftwarePageTable" {
-                    print("[MeloNX] Eastward stability profile: memory mode \(config.memoryManagerMode) -> SoftwarePageTable")
-                    config.memoryManagerMode = "SoftwarePageTable"
+                if config.memoryManagerMode != "HostMapped" {
+                    print("[MeloNX] Eastward stability profile: memory mode \(config.memoryManagerMode) -> HostMapped")
+                    config.memoryManagerMode = "HostMapped"
                 }
 
                 if config.expandRam {

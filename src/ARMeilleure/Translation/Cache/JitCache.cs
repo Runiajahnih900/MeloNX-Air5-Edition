@@ -209,8 +209,6 @@ namespace ARMeilleure.Translation.Cache
 
             int allocOffset = _cacheAllocator.Allocate(ref codeSize, alignment);
 
-            Console.WriteLine($"{allocOffset:x8}: {codeSize:x8} {alignment:x8}");
-
             if (allocOffset < 0)
             {
                 throw new OutOfMemoryException("JIT Cache exhausted.");
