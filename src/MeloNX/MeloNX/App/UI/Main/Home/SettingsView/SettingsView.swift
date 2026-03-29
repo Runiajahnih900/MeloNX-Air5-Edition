@@ -850,7 +850,7 @@ struct SettingsViewNew: View {
                 Divider()
                 SettingsToggle(isOn: config.debuglogs, icon: "exclamationmark.bubble", label: "Debug Logs", infoMessage: "Prints debug log messages in the console.\n\nOnly use this if specifically instructed by a staff member, as it will make logs difficult to read and worsen emulator performance.")
                 Divider()
-                SettingsToggle(isOn: config.tracelogs, icon: "waveform.path", label: "Trace Logs", infoMessage: "Prints trace log messages in the console. Does not affect performance.")
+                SettingsToggle(isOn: config.tracelogs, icon: "waveform.path", label: "Trace Logs", infoMessage: "Prints very high-volume trace logs.\n\nCan severely hurt performance and may cause stutter or force close on iOS devices. Keep OFF unless requested for debugging.")
             }
         }
     }

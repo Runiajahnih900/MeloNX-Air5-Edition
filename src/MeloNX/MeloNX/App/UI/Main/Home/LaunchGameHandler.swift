@@ -99,6 +99,16 @@ class LaunchGameHandler: ObservableObject {
         
         var config = persettings.config[currentGame.titleId] ?? self.config
 
+        let allowUnsafeVerboseLogs = nativeSettings.setting(forKey: "allowUnsafeVerboseLogs", default: false).value
+        if !ProcessInfo.processInfo.isiOSAppOnMac && !allowUnsafeVerboseLogs {
+            if config.tracelogs || config.debuglogs {
+                print("[MeloNX] Verbose logs (trace/debug) disabled on iOS for stability. Set 'allowUnsafeVerboseLogs' to true to override.")
+            }
+
+            config.tracelogs = false
+            config.debuglogs = false
+        }
+
         if config.hypervisor && !(ProcessInfo.processInfo.isiOSAppOnMac || checkAppEntitlement("com.apple.private.hypervisor")) {
             config.hypervisor = false
         }

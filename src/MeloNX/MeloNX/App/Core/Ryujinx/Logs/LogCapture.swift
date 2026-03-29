@@ -10,6 +10,7 @@ import Foundation
 
 final class LogCapture: ObservableObject {
     static let shared = LogCapture()
+    private static let coreLogRegex = try? NSRegularExpression(pattern: "\\d{2}:\\d{2}:\\d{2}\\.\\d{3} \\|[A-Z]+\\|", options: .caseInsensitive)
 
     private var stdoutPipe: Pipe?
     private var stderrPipe: Pipe?
@@ -20,7 +21,7 @@ final class LogCapture: ObservableObject {
     public private(set) var capturedLogs: [String] = []
     private let fileIOQueue = DispatchQueue(label: "com.melonx.logcapture.file-io")
     private var sessionFileHandle: FileHandle?
-    private let maxCapturedLogs = 4000
+    private let maxCapturedLogs = 1500
     private let mirrorLogsToOriginalFD = UserDefaults.standard.bool(forKey: "mirrorLogsToOriginalFD")
 
     lazy var logs: AsyncStream<String> = {
@@ -168,9 +169,20 @@ final class LogCapture: ObservableObject {
         return trimmed.isEmpty ? fallback : String(trimmed.prefix(80))
     }
 
+    private var includeTraceLogsInSession: Bool {
+        UserDefaults.standard.bool(forKey: "includeTraceLogsInSession")
+    }
+
+    private func isTraceLogLine(_ line: String) -> Bool {
+        line.contains("|T|")
+    }
+
     private func cleanAllLines(_ raw: String) -> String {
         raw
             .split(separator: "\n")
+            .filter { line in
+                includeTraceLogsInSession || !isTraceLogLine(String(line))
+            }
             .map { line -> String in
                 if let tabRange = line.range(of: "\t") {
                     return line[tabRange.upperBound...].trimmingCharacters(in: .whitespacesAndNewlines)
@@ -184,14 +196,17 @@ final class LogCapture: ObservableObject {
         let lines = raw.split(separator: "\n")
         
         let filteredLines = lines.filter { line in
+            if !includeTraceLogsInSession && isTraceLogLine(String(line)) {
+                return false
+            }
+
             if UserDefaults.standard.bool(forKey: "showFullLogs") {
                 return true
             }
             
-            let regex = try? NSRegularExpression(pattern: "\\d{2}:\\d{2}:\\d{2}\\.\\d{3} \\|[A-Z]+\\|", options: .caseInsensitive)
-            let matches = regex?.matches(in: String(line), options: [], range: NSRange(location: 0, length: line.utf16.count)) ?? []
-            
-            return matches.count >= 1
+            guard let regex = Self.coreLogRegex else { return false }
+            let range = NSRange(location: 0, length: line.utf16.count)
+            return regex.firstMatch(in: String(line), options: [], range: range) != nil
         }
 
         let cleaned = filteredLines.map { line -> String in
