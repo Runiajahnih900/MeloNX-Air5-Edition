@@ -112,14 +112,27 @@ class LaunchGameHandler: ObservableObject {
         if !ProcessInfo.processInfo.isiOSAppOnMac {
             let normalizedTitleId = currentGame.titleId.lowercased()
             if normalizedTitleId == "010071b00f63a000" {
-                if config.memoryManagerMode == "HostMappedUnsafe" {
-                    print("[MeloNX] Eastward stability profile: memory mode HostMappedUnsafe -> HostMapped")
-                    config.memoryManagerMode = "HostMapped"
+                if config.memoryManagerMode != "SoftwarePageTable" {
+                    print("[MeloNX] Eastward stability profile: memory mode \(config.memoryManagerMode) -> SoftwarePageTable")
+                    config.memoryManagerMode = "SoftwarePageTable"
                 }
 
                 if config.expandRam {
                     print("[MeloNX] Eastward stability profile: disabling Expand Guest RAM")
                     config.expandRam = false
+                }
+
+                if config.ignoreMissingServices {
+                    print("[MeloNX] Eastward stability profile: disabling Ignore Missing Services")
+                    config.ignoreMissingServices = false
+                }
+
+                if !config.additionalArgs.contains("--disable-guest-logs") {
+                    config.additionalArgs.append("--disable-guest-logs")
+                }
+
+                if !config.additionalArgs.contains("--disable-stub-logs") {
+                    config.additionalArgs.append("--disable-stub-logs")
                 }
             }
         }
