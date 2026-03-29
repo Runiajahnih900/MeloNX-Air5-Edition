@@ -20,6 +20,8 @@ final class LogCapture: ObservableObject {
     public private(set) var capturedLogs: [String] = []
     private let fileIOQueue = DispatchQueue(label: "com.melonx.logcapture.file-io")
     private var sessionFileHandle: FileHandle?
+    private let maxCapturedLogs = 4000
+    private let mirrorLogsToOriginalFD = UserDefaults.standard.bool(forKey: "mirrorLogsToOriginalFD")
 
     lazy var logs: AsyncStream<String> = {
         AsyncStream { continuation in
@@ -64,15 +66,22 @@ final class LogCapture: ObservableObject {
             guard let self else { return }
 
             let data = fileHandle.availableData
-            let originalFD = isStdout ? self.originalStdout : self.originalStderr
-            write(originalFD, (data as NSData).bytes, data.count)
+            if self.mirrorLogsToOriginalFD {
+                let originalFD = isStdout ? self.originalStdout : self.originalStderr
+                write(originalFD, (data as NSData).bytes, data.count)
+            }
 
-            guard let logString = String(data: data, encoding: .utf8),
-                  let cleanedLog = self.cleanLog(logString),
+            guard let logString = String(data: data, encoding: .utf8) else { return }
+
+            let cleanedAll = self.cleanAllLines(logString)
+            if !cleanedAll.isEmpty {
+                self.appendToSessionLog(cleanedAll)
+            }
+
+            guard let cleanedLog = self.cleanLog(logString),
                   !cleanedLog.0.isEmpty else { return }
 
-            self.capturedLogs.append(cleanedLog.1)
-            self.appendToSessionLog(cleanedLog.1)
+            self.appendCapturedLog(cleanedLog.1)
             self.continuation?.yield(cleanedLog.0)
 
         }
@@ -88,10 +97,8 @@ final class LogCapture: ObservableObject {
         formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
         let timestamp = formatter.string(from: Date())
 
-        let logName = "\(timestamp)-\(safeTitle)-\(safeTitleId).log"
-        let logsDirectory = URL.documentsDirectory
-            .appendingPathComponent("logs")
-            .appendingPathComponent("games")
+        let logName = "MeloNX-GameLog-\(timestamp)-\(safeTitle)-\(safeTitleId).log"
+        let logsDirectory = URL.documentsDirectory.appendingPathComponent("logs")
         let logURL = logsDirectory.appendingPathComponent(logName)
 
         fileIOQueue.sync {
@@ -114,6 +121,13 @@ final class LogCapture: ObservableObject {
             } catch {
                 sessionFileHandle = nil
             }
+        }
+    }
+
+    private func appendCapturedLog(_ logLine: String) {
+        capturedLogs.append(logLine)
+        if capturedLogs.count > maxCapturedLogs {
+            capturedLogs.removeFirst(capturedLogs.count - maxCapturedLogs)
         }
     }
 
@@ -152,6 +166,18 @@ final class LogCapture: ObservableObject {
         let replaced = input.replacingOccurrences(of: "[^A-Za-z0-9_-]+", with: "_", options: .regularExpression)
         let trimmed = replaced.trimmingCharacters(in: CharacterSet(charactersIn: "_"))
         return trimmed.isEmpty ? fallback : String(trimmed.prefix(80))
+    }
+
+    private func cleanAllLines(_ raw: String) -> String {
+        raw
+            .split(separator: "\n")
+            .map { line -> String in
+                if let tabRange = line.range(of: "\t") {
+                    return line[tabRange.upperBound...].trimmingCharacters(in: .whitespacesAndNewlines)
+                }
+                return line.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            .joined(separator: "\n")
     }
 
     private func cleanLog(_ raw: String) -> (String, String)? {

@@ -248,7 +248,7 @@ extension NSURL {
 
 @objc public class EarlyInit: NSObject {
     @objc public static func entryPoint() {
-        redirectStdIOToFile(filename: "MeloNX-App-Log-\(Date()).txt")
+        redirectStdIOToFile(filename: makeAppLogFilename())
         UIGlassEffectHook.installHook()
     
         if Bundle.swizzleBundleIdentifier() {
@@ -292,6 +292,47 @@ extension NSURL {
     }
 }
 
+private func makeAppLogFilename() -> String {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+    return "MeloNX-App-Log-\(formatter.string(from: Date())).txt"
+}
+
+private func cleanupMainLogs(in logsDir: URL, maxKeepCount: Int = 3, maxFileSizeBytes: Int64 = 50 * 1024 * 1024) {
+    let fileManager = FileManager.default
+    guard let urls = try? fileManager.contentsOfDirectory(
+        at: logsDir,
+        includingPropertiesForKeys: [.contentModificationDateKey, .fileSizeKey, .isDirectoryKey],
+        options: [.skipsHiddenFiles]
+    ) else {
+        return
+    }
+
+    let mainLogFiles = urls.filter { url in
+        let name = url.lastPathComponent
+        return name.hasPrefix("MeloNX-App-Log-") && name.hasSuffix(".txt")
+    }
+
+    let datedLogs = mainLogFiles.sorted { lhs, rhs in
+        let lhsDate = (try? lhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+        let rhsDate = (try? rhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+        return lhsDate > rhsDate
+    }
+
+    if datedLogs.count > maxKeepCount {
+        for staleURL in datedLogs.dropFirst(maxKeepCount) {
+            try? fileManager.removeItem(at: staleURL)
+        }
+    }
+
+    for logURL in datedLogs.prefix(maxKeepCount) {
+        let size = (try? logURL.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init) ?? 0
+        if size > maxFileSizeBytes {
+            try? fileManager.removeItem(at: logURL)
+        }
+    }
+}
+
 func redirectStdIOToFile(filename: String) {
     let fileManager = FileManager.default
 
@@ -301,6 +342,8 @@ func redirectStdIOToFile(filename: String) {
     if !fileManager.fileExists(atPath: logsDir.path) {
         try? fileManager.createDirectory(at: logsDir, withIntermediateDirectories: true)
     }
+
+    cleanupMainLogs(in: logsDir)
 
     if !fileManager.fileExists(atPath: logURL.path) {
         fileManager.createFile(atPath: logURL.path, contents: nil)
