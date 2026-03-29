@@ -112,9 +112,9 @@ class LaunchGameHandler: ObservableObject {
         if !ProcessInfo.processInfo.isiOSAppOnMac {
             let normalizedTitleId = currentGame.titleId.lowercased()
             if normalizedTitleId == "010071b00f63a000" {
-                if config.memoryManagerMode != "HostMapped" {
-                    print("[MeloNX] Eastward stability profile: memory mode \(config.memoryManagerMode) -> HostMapped")
-                    config.memoryManagerMode = "HostMapped"
+                if config.memoryManagerMode != "HostMappedUnsafe" {
+                    print("[MeloNX] Eastward compatibility profile: memory mode \(config.memoryManagerMode) -> HostMappedUnsafe")
+                    config.memoryManagerMode = "HostMappedUnsafe"
                 }
 
                 if config.expandRam {
@@ -130,6 +130,16 @@ class LaunchGameHandler: ObservableObject {
                 if config.ignoreMissingServices {
                     print("[MeloNX] Eastward stability profile: disabling Ignore Missing Services")
                     config.ignoreMissingServices = false
+                }
+
+                if !config.macroHLE {
+                    print("[MeloNX] Eastward compatibility profile: enabling Macro HLE")
+                    config.macroHLE = true
+                }
+
+                if !config.enableDockedMode {
+                    print("[MeloNX] Eastward compatibility profile: enabling Docked Mode")
+                    config.enableDockedMode = true
                 }
 
                 if !config.additionalArgs.contains("--disable-guest-logs") {
@@ -154,7 +164,7 @@ class LaunchGameHandler: ObservableObject {
             config.inputids.append("0")
         }
 
-        LogCapture.shared.logDiagnostic("Config summary: memoryMode=\(config.memoryManagerMode), disablePTC=\(config.disablePTC), expandRam=\(config.expandRam), hypervisor=\(config.hypervisor), debugLogs=\(config.debuglogs), traceLogs=\(config.tracelogs), ignoreMissingServices=\(config.ignoreMissingServices), controllerCount=\(config.inputids.count)")
+        LogCapture.shared.logDiagnostic("Config summary: memoryMode=\(config.memoryManagerMode), disablePTC=\(config.disablePTC), expandRam=\(config.expandRam), hypervisor=\(config.hypervisor), debugLogs=\(config.debuglogs), traceLogs=\(config.tracelogs), macroHLE=\(config.macroHLE), docked=\(config.enableDockedMode), ignoreMissingServices=\(config.ignoreMissingServices), controllerCount=\(config.inputids.count)")
         
         print(config.inputids)
         configureEnvironmentVariables(for: config)
