@@ -213,7 +213,18 @@ namespace Ryujinx.Cpu.Jit.HostTracked
             }
             else
             {
-                throw new InvalidMemoryRegionException();
+                // This callback runs from unmanaged signal-handler context.
+                // Throwing managed exceptions here can abort the process on iOS.
+                // Route out-of-range accesses to the guard page instead.
+                ulong guardStart = _nativePageTable.Size - _hostPageSize;
+                ulong guardOffset = address >= guardStart ? address - guardStart : 0;
+
+                if (guardOffset >= _hostPageSize)
+                {
+                    guardOffset = _hostPageSize - 1;
+                }
+
+                return (ulong)GetGuardPagePointer() + guardOffset;
             }
         }
 
