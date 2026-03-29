@@ -109,6 +109,21 @@ class LaunchGameHandler: ObservableObject {
             config.debuglogs = false
         }
 
+        if !ProcessInfo.processInfo.isiOSAppOnMac {
+            let normalizedTitleId = currentGame.titleId.lowercased()
+            if normalizedTitleId == "010071b00f63a000" {
+                if config.memoryManagerMode == "HostMappedUnsafe" {
+                    print("[MeloNX] Eastward stability profile: memory mode HostMappedUnsafe -> HostMapped")
+                    config.memoryManagerMode = "HostMapped"
+                }
+
+                if config.expandRam {
+                    print("[MeloNX] Eastward stability profile: disabling Expand Guest RAM")
+                    config.expandRam = false
+                }
+            }
+        }
+
         if config.hypervisor && !(ProcessInfo.processInfo.isiOSAppOnMac || checkAppEntitlement("com.apple.private.hypervisor")) {
             config.hypervisor = false
         }

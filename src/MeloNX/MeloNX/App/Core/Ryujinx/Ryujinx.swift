@@ -522,6 +522,19 @@ class Ryujinx : ObservableObject {
         if config.tracelogs {
             args.append("--enable-trace-logs")
         }
+
+        if !ProcessInfo.processInfo.isiOSAppOnMac {
+            let allowGuestLogs = NativeSettingsManager.shared.setting(forKey: "allowGuestLogs", default: false).value
+            let allowStubLogs = NativeSettingsManager.shared.setting(forKey: "allowStubLogs", default: false).value
+
+            if !allowGuestLogs {
+                args.append("--disable-guest-logs")
+            }
+
+            if !allowStubLogs {
+                args.append("--disable-stub-logs")
+            }
+        }
         
         // List the input ids
         if config.listinputids {
