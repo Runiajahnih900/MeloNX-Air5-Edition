@@ -163,18 +163,29 @@ class LaunchGameHandler: ObservableObject {
     }
     
     private func configureEnvironmentVariables() {
-        let useDualMappedJIT: Bool
+        var useDualMappedJIT: Bool
         if #available(iOS 19, *) {
             useDualMappedJIT = nativeSettings.setting(forKey: "DUAL_MAPPED_JIT", default: true).value
         } else {
             useDualMappedJIT = nativeSettings.setting(forKey: "DUAL_MAPPED_JIT", default: false).value
         }
+
+        if !ProcessInfo.processInfo.isiOSAppOnMac,
+           currentGame?.titleId.lowercased() == "010071b00f63a000" {
+            useDualMappedJIT = true
+        }
         
         if useDualMappedJIT {
             setenv("DUAL_MAPPED_JIT", "1", 1)
             Self.succeededJIT = RyujinxBridge.initialize_dualmapped()
+
+            if !Self.succeededJIT {
+                print("[MeloNX] Dual-mapped JIT init failed, falling back to standard JIT mapping.")
+                setenv("DUAL_MAPPED_JIT", "0", 1)
+            }
         } else {
             setenv("DUAL_MAPPED_JIT", "0", 1)
+            Self.succeededJIT = true
         }
         
         guard let device = MTLCreateSystemDefaultDevice() else {

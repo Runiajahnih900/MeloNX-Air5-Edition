@@ -170,7 +170,6 @@ final class RyujinxBridge {
     }
 
     static func setGamepadButtonState(_ id: UnsafeMutableRawPointer?, buttonId: Int, pressed: Bool) {
-        print("Gamepad button State \(Int32(buttonId)), pressed \(pressed)")
         SN_set_gamepad_button_state(id, Int32(buttonId), pressed ? 1 : 0)
     }
 

@@ -377,14 +377,10 @@ func redirectStdIOToFile(filename: String) {
         let original = unsafeBitCast(originalIMP, to: InitIMP.self)
         
         let block: @convention(block) (UIVisualEffectView, UIVisualEffect?) -> UIVisualEffectView = { view, effect in
-            print("initWithEffect: called with: \(effect != nil ? String(describing: type(of: effect!)) : "nil")")
-            
             if NativeSettingsManager.shared.disableLiquidGlass.value {
                 if let effect = effect, NSStringFromClass(type(of: effect)).contains("UIGlassEffect") {
-                    print("Replacing UIGlassEffect with UIBlurEffect in initWithEffect:")
                     return original(view, selector, UIBlurEffect(style: .regular))
                 } else if effect == nil {
-                    print("Replacing nil with UIBlurEffect in initWithEffect:")
                     return original(view, selector, UIBlurEffect(style: .regular))
                 }
             }
@@ -393,7 +389,6 @@ func redirectStdIOToFile(filename: String) {
         }
         
         method_setImplementation(method, imp_implementationWithBlock(block as Any))
-        print("Hooked UIVisualEffectView.initWithEffect:")
     }
 }
 

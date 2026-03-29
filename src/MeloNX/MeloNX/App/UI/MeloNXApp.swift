@@ -121,8 +121,13 @@ struct MeloNXApp: View {
         if cool {
             EnvironmentVariable(string: "DUAL_MAPPED_JIT", value: "1").set()
             LaunchGameHandler.succeededJIT = RyujinxBridge.initialize_dualmapped()
+
+            if !LaunchGameHandler.succeededJIT {
+                EnvironmentVariable(string: "DUAL_MAPPED_JIT", value: "0").set()
+            }
         } else {
             EnvironmentVariable(string: "DUAL_MAPPED_JIT", value: "0").set()
+            LaunchGameHandler.succeededJIT = true
         }
     }
 }
