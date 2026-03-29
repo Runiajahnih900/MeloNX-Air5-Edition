@@ -125,7 +125,7 @@ final class LogCapture: ObservableObject {
 
     private func appendToSessionLog(_ logLine: String) {
         fileIOQueue.async {
-            guard let sessionFileHandle,
+            guard let sessionFileHandle = self.sessionFileHandle,
                   let data = (logLine + "\n").data(using: .utf8) else {
                 return
             }
