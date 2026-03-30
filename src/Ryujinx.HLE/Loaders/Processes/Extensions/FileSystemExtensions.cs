@@ -37,15 +37,9 @@ namespace Ryujinx.HLE.Loaders.Processes.Extensions
         public static ProcessResult Load(this IFileSystem exeFs, Switch device, BlitStruct<ApplicationControlProperty> nacpData, MetaLoader metaLoader, byte programIndex, bool isHomebrew = false)
         {
             ulong programId = metaLoader.GetProgramId();
-            bool disableModsForCompatibility = TitleCompatibility.ShouldDisableModInjection(programId);
-
-            if (disableModsForCompatibility)
-            {
-                Logger.Warning?.Print(LogClass.Loader, $"Compatibility mode enabled for title {programId:x16} on iOS. Skipping ExeFS and NSO mod injection.");
-            }
 
             // Replace the whole ExeFs partition by the modded one.
-            if (!disableModsForCompatibility && device.Configuration.VirtualFileSystem.ModLoader.ReplaceExefsPartition(programId, ref exeFs))
+            if (device.Configuration.VirtualFileSystem.ModLoader.ReplaceExefsPartition(programId, ref exeFs))
             {
                 metaLoader = null;
             }
@@ -74,9 +68,7 @@ namespace Ryujinx.HLE.Loaders.Processes.Extensions
             }
 
             // ExeFs file replacements.
-            ModLoadResult modLoadResult = disableModsForCompatibility
-                ? default
-                : device.Configuration.VirtualFileSystem.ModLoader.ApplyExefsMods(programId, nsoExecutables);
+            ModLoadResult modLoadResult = device.Configuration.VirtualFileSystem.ModLoader.ApplyExefsMods(programId, nsoExecutables);
 
             // Take the Npdm from mods if present.
             if (modLoadResult.Npdm != null)
@@ -88,14 +80,11 @@ namespace Ryujinx.HLE.Loaders.Processes.Extensions
             nsoExecutables = nsoExecutables.Where(x => x != null).ToArray();
 
             // Apply Nsos patches.
-            if (!disableModsForCompatibility)
-            {
-                device.Configuration.VirtualFileSystem.ModLoader.ApplyNsoPatches(programId, nsoExecutables);
-            }
+            device.Configuration.VirtualFileSystem.ModLoader.ApplyNsoPatches(programId, nsoExecutables);
 
             // Don't use PTC if ExeFS files have been replaced.
             bool enablePtc = device.System.EnablePtc && !modLoadResult.Modified;
-            if (!enablePtc && !disableModsForCompatibility)
+            if (!enablePtc)
             {
                 Logger.Warning?.Print(LogClass.Ptc, "Detected unsupported ExeFs modifications. PTC disabled.");
             }

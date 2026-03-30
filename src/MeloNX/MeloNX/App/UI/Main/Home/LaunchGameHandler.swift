@@ -20,7 +20,6 @@ class LaunchGameHandler: ObservableObject {
     static var succeededJIT: Bool = true
     
     private static let jitEntitlement = "com.apple.developer.kernel.increased-memory-limit"
-    private static let eastwardTitleId = "010071b00f63a000"
     
     private let ryujinx = Ryujinx.shared
     private let nativeSettings = NativeSettingsManager.shared
@@ -87,17 +86,14 @@ class LaunchGameHandler: ObservableObject {
     }
     
     func startGame() {
-        guard let currentGame else { return }
-
-        LogCapture.shared.startGameSessionLog(gameTitle: currentGame.titleName, titleId: currentGame.titleId)
-        LogCapture.shared.logDiagnostic("Launch stage: startGame invoked for titleId=\(currentGame.titleId)")
-
         enableJIT()
-        LogCapture.shared.logDiagnostic("Launch stage: JIT check finished. jitenabled=\(ryujinx.jitenabled), ignoreJIT=\(nativeSettings.ignoreJIT.value), hasTXM=\(ProcessInfo.processInfo.hasTXM)")
-
         MusicSelectorView.stopMusic()
         nativeSettings.isVirtualController.value = controllerManager.hasVirtualController()
         MetalView.createView()
+        
+        guard let currentGame else { return }
+
+        LogCapture.shared.startGameSessionLog(gameTitle: currentGame.titleName, titleId: currentGame.titleId)
         
         persettings.loadSettings()
         
@@ -115,10 +111,10 @@ class LaunchGameHandler: ObservableObject {
 
         if !ProcessInfo.processInfo.isiOSAppOnMac {
             let normalizedTitleId = currentGame.titleId.lowercased()
-            if normalizedTitleId == Self.eastwardTitleId {
-                if config.memoryManagerMode != "HostMapped" {
-                    print("[MeloNX] Eastward compatibility profile: memory mode \(config.memoryManagerMode) -> HostMapped")
-                    config.memoryManagerMode = "HostMapped"
+            if normalizedTitleId == "010071b00f63a000" {
+                if config.memoryManagerMode != "HostMappedUnsafe" {
+                    print("[MeloNX] Eastward compatibility profile: memory mode \(config.memoryManagerMode) -> HostMappedUnsafe")
+                    config.memoryManagerMode = "HostMappedUnsafe"
                 }
 
                 if config.expandRam {
@@ -146,8 +142,13 @@ class LaunchGameHandler: ObservableObject {
                     config.enableDockedMode = true
                 }
 
-                config.additionalArgs.removeAll { $0 == "--disable-guest-logs" || $0 == "--disable-stub-logs" }
-                LogCapture.shared.logDiagnostic("Eastward diagnostics profile: removed forced --disable-guest-logs/--disable-stub-logs from additional args")
+                if !config.additionalArgs.contains("--disable-guest-logs") {
+                    config.additionalArgs.append("--disable-guest-logs")
+                }
+
+                if !config.additionalArgs.contains("--disable-stub-logs") {
+                    config.additionalArgs.append("--disable-stub-logs")
+                }
             }
         }
 
@@ -163,18 +164,15 @@ class LaunchGameHandler: ObservableObject {
             config.inputids.append("0")
         }
 
-        LogCapture.shared.logDiagnostic("Config summary: memoryMode=\(config.memoryManagerMode), disablePTC=\(config.disablePTC), expandRam=\(config.expandRam), hypervisor=\(config.hypervisor), debugLogs=\(config.debuglogs), traceLogs=\(config.tracelogs), macroHLE=\(config.macroHLE), docked=\(config.enableDockedMode), ignoreMissingServices=\(config.ignoreMissingServices), additionalArgs=\(config.additionalArgs.joined(separator: " ")), controllerCount=\(config.inputids.count)")
+        LogCapture.shared.logDiagnostic("Config summary: memoryMode=\(config.memoryManagerMode), disablePTC=\(config.disablePTC), expandRam=\(config.expandRam), hypervisor=\(config.hypervisor), debugLogs=\(config.debuglogs), traceLogs=\(config.tracelogs), macroHLE=\(config.macroHLE), docked=\(config.enableDockedMode), ignoreMissingServices=\(config.ignoreMissingServices), controllerCount=\(config.inputids.count)")
         
         print(config.inputids)
-        LogCapture.shared.logDiagnostic("Launch stage: configuring environment variables")
         configureEnvironmentVariables(for: config)
-        LogCapture.shared.logDiagnostic("Launch stage: invoking core start")
         
         do {
             try ryujinx.start(with: config)
         } catch {
             print("Failed to start game '\(currentGame.titleId)': \(error)")
-            LogCapture.shared.logDiagnostic("Launch stage: failed before entering core loop. error=\(error)")
             LogCapture.shared.endGameSessionLog()
         }
     }
@@ -187,48 +185,30 @@ class LaunchGameHandler: ObservableObject {
             useDualMappedJIT = nativeSettings.setting(forKey: "DUAL_MAPPED_JIT", default: false).value
         }
 
-        let normalizedTitleId = currentGame?.titleId.lowercased() ?? "unknown"
-        let isEastwardOnIOS = !ProcessInfo.processInfo.isiOSAppOnMac && normalizedTitleId == Self.eastwardTitleId
-        let requestedDualMappedJIT = useDualMappedJIT
-
-        if isEastwardOnIOS {
-            if #available(iOS 19, *) {
-                // Keep user choice on newer iOS versions.
-            } else {
-                useDualMappedJIT = false
-            }
-
-            if requestedDualMappedJIT && !useDualMappedJIT {
-                LogCapture.shared.logDiagnostic("JIT env override: disabling dual-mapped JIT for Eastward on iOS < 19 to avoid startup stalls")
-            }
+          if !ProcessInfo.processInfo.isiOSAppOnMac,
+              currentGame?.titleId.lowercased() == "010071b00f63a000" {
+            useDualMappedJIT = true
         }
-
-        LogCapture.shared.logDiagnostic("JIT env decision: titleId=\(normalizedTitleId), requestedDualMapped=\(requestedDualMappedJIT), effectiveDualMapped=\(useDualMappedJIT), hasTXM=\(ProcessInfo.processInfo.hasTXM)")
         
         if useDualMappedJIT {
             setenv("DUAL_MAPPED_JIT", "1", 1)
             Self.succeededJIT = RyujinxBridge.initialize_dualmapped()
-            LogCapture.shared.logDiagnostic("JIT env apply: initialize_dualmapped result=\(Self.succeededJIT)")
 
             if !Self.succeededJIT {
                 print("[MeloNX] Dual-mapped JIT init failed, falling back to standard JIT mapping.")
                 setenv("DUAL_MAPPED_JIT", "0", 1)
-                LogCapture.shared.logDiagnostic("JIT env apply: dual-mapped init failed, switched to standard mapping")
             }
         } else {
             setenv("DUAL_MAPPED_JIT", "0", 1)
             Self.succeededJIT = true
-            LogCapture.shared.logDiagnostic("JIT env apply: using standard JIT mapping")
         }
         
         guard let device = MTLCreateSystemDefaultDevice() else {
             setenv("MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS", "1", 1)
-            LogCapture.shared.logDiagnostic("Metal env decision: no default MTL device, forcing MVK argument buffers=1")
             return
         }
         
         let supportsArgumentBuffersTier2 = device.argumentBuffersSupport.rawValue >= MTLArgumentBuffersTier.tier2.rawValue
         setenv("MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS", supportsArgumentBuffersTier2 ? "1" : "0", 1)
-        LogCapture.shared.logDiagnostic("Metal env decision: argumentBuffersTier2=\(supportsArgumentBuffersTier2)")
     }
 }

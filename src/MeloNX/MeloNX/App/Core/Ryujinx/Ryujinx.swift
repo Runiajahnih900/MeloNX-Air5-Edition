@@ -55,7 +55,6 @@ class Ryujinx : ObservableObject {
     
     // Ryujinx Thread
     var runner = Runner()
-    private var activeLaunchToken: UUID?
     
     static let shared = Ryujinx()
     
@@ -69,22 +68,6 @@ class Ryujinx : ObservableObject {
     
     func runloop(_ cool: @escaping () -> Void) {
         runner.start(cool)
-    }
-
-    private func armLaunchWatchdog(token: UUID, gamePath: String) {
-        let checkpoints = [10, 30, 60, 120]
-
-        for seconds in checkpoints {
-            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + .seconds(seconds)) { [weak self] in
-                guard let self,
-                      self.isRunning,
-                      self.activeLaunchToken == token else {
-                    return
-                }
-
-                LogCapture.shared.logDiagnostic("Launch watchdog: core still running after \(seconds)s for gamePath=\(gamePath). If loading screen is unchanged, likely stuck during startup/scene transition.")
-            }
-        }
     }
     
     
@@ -148,47 +131,37 @@ class Ryujinx : ObservableObject {
             throw RyujinxError.alreadyRunning
         }
         
-        let launchToken = UUID()
-        activeLaunchToken = launchToken
         
         self.config = config
         
         self.isRunning = true
-        LogCapture.shared.logDiagnostic("Launch stage: start accepted, token=\(launchToken.uuidString), gamePath=\(config.gamepath)")
         
         
         runloop { [self] in
-            let url = URL(fileURLWithPath: config.gamepath)
+            let url = URL(string: config.gamepath)
             
             do {
                 let args = self.buildCommandLineArgs(from: config)
-                let tokenShort = String(launchToken.uuidString.prefix(8))
                 LogCapture.shared.logDiagnostic("Launch argv count=\(args.count)")
                 LogCapture.shared.logDiagnostic("Launch argv=\(args.joined(separator: " "))")
-                let accessing = url.startAccessingSecurityScopedResource()
-                LogCapture.shared.logDiagnostic("Launch stage: arming startup watchdog token=\(tokenShort)")
-                self.armLaunchWatchdog(token: launchToken, gamePath: config.gamepath)
+                let accessing = url?.startAccessingSecurityScopedResource()
                 
                 // Start the emulation
                 if isRunning {
-                    LogCapture.shared.logDiagnostic("Launch stage: entering core entrypoint mainRyu token=\(tokenShort)")
                     let result = RyujinxBridge.mainRyu(argv: args)//main_ryujinx_sdl(Int32(args.count), &argvPtrs)
-                    LogCapture.shared.logDiagnostic("Launch stage: core entrypoint returned result=\(result) token=\(tokenShort)")
-                    self.activeLaunchToken = nil
-                    if accessing {
-                        url.stopAccessingSecurityScopedResource()
-                    }
                     
                     if result != 0 {
                         Task { @MainActor in
                             self.isRunning = false
+                        }
+                        if let accessing, accessing {
+                            url!.stopAccessingSecurityScopedResource()
                         }
                         
                         throw RyujinxError.executionError(code: Int32(result))
                     }
                 }
             } catch {
-                self.activeLaunchToken = nil
                 Task { @MainActor in
                     self.isRunning = false
                 }
@@ -337,8 +310,6 @@ class Ryujinx : ObservableObject {
         guard isRunning else {
             throw RyujinxError.notRunning
         }
-
-        activeLaunchToken = nil
         
         LogCapture.shared.endGameSessionLog()
         isRunning = false
@@ -426,8 +397,6 @@ class Ryujinx : ObservableObject {
     
     func buildCommandLineArgs(from config: Arguments) -> [String] {
         var args: [String] = []
-        let lowercasedGamePath = config.gamepath.lowercased()
-        let isEastwardLaunch = lowercasedGamePath.contains("010071b00f63a000")
         
         // Add the game path
         args.append(config.gamepath)
@@ -563,16 +532,12 @@ class Ryujinx : ObservableObject {
             let allowGuestLogs = NativeSettingsManager.shared.setting(forKey: "allowGuestLogs", default: false).value
             let allowStubLogs = NativeSettingsManager.shared.setting(forKey: "allowStubLogs", default: false).value
 
-            if isEastwardLaunch {
-                LogCapture.shared.logDiagnostic("Eastward diagnostics: forcing guest/stub logs enabled for startup and scene-stall analysis")
-            } else {
-                if !crashForensicsMode && !allowGuestLogs {
-                    args.append("--disable-guest-logs")
-                }
+            if !crashForensicsMode && !allowGuestLogs {
+                args.append("--disable-guest-logs")
+            }
 
-                if !crashForensicsMode && !allowStubLogs {
-                    args.append("--disable-stub-logs")
-                }
+            if !crashForensicsMode && !allowStubLogs {
+                args.append("--disable-stub-logs")
             }
         }
         
@@ -604,53 +569,8 @@ class Ryujinx : ObservableObject {
         }
         
         args.append(contentsOf: config.additionalArgs)
-
-        return sanitizeCommandLineArgs(args)
-    }
-
-    private func sanitizeCommandLineArgs(_ args: [String]) -> [String] {
-        guard !args.isEmpty else {
-            return args
-        }
-
-        var sanitizedArgs: [String] = [args[0]]
-        var seenStandaloneFlags = Set<String>()
-        var removedFlags: [String] = []
-        var removedSet = Set<String>()
-        var index = 1
-
-        while index < args.count {
-            let token = args[index]
-
-            if token.hasPrefix("--") {
-                let hasValue = index + 1 < args.count && !args[index + 1].hasPrefix("--")
-
-                if hasValue {
-                    sanitizedArgs.append(token)
-                    sanitizedArgs.append(args[index + 1])
-                    index += 2
-                    continue
-                }
-
-                if seenStandaloneFlags.insert(token).inserted {
-                    sanitizedArgs.append(token)
-                } else if removedSet.insert(token).inserted {
-                    removedFlags.append(token)
-                }
-
-                index += 1
-                continue
-            }
-
-            sanitizedArgs.append(token)
-            index += 1
-        }
-
-        if !removedFlags.isEmpty {
-            LogCapture.shared.logDiagnostic("Launch args sanitized: removed duplicate standalone flags: \(removedFlags.joined(separator: ", "))")
-        }
-
-        return sanitizedArgs
+        
+        return args
     }
     
     func reloadControllersWithInfo() {

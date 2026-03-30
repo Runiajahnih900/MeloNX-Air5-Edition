@@ -7,7 +7,6 @@
 
 
 import Foundation
-import Darwin
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -28,8 +27,6 @@ final class LogCapture: ObservableObject {
     private let fileIOQueue = DispatchQueue(label: "com.melonx.logcapture.file-io")
     private var sessionFileHandle: FileHandle?
     private var sessionLogURL: URL?
-    private var sessionHeartbeatTimer: DispatchSourceTimer?
-    private var sessionStartedAt: Date?
     private let maxCapturedLogs = 1500
     private let maxSessionLogBytes: UInt64 = 64 * 1024 * 1024
     private let mirrorLogsToOriginalFD = UserDefaults.standard.bool(forKey: "mirrorLogsToOriginalFD")
@@ -108,14 +105,12 @@ final class LogCapture: ObservableObject {
 
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
-        let sessionStart = Date()
-        let timestamp = formatter.string(from: sessionStart)
+        let timestamp = formatter.string(from: Date())
 
         let logName = "MeloNX-GameLog-\(timestamp)-\(safeTitle)-\(safeTitleId).log"
         let logsDirectory = URL.documentsDirectory.appendingPathComponent("logs")
         let logURL = logsDirectory.appendingPathComponent(logName)
         sessionLogURL = logURL
-        sessionStartedAt = sessionStart
 
         fileIOQueue.sync {
             closeSessionFileHandleLocked()
@@ -138,7 +133,7 @@ final class LogCapture: ObservableObject {
 #else
                 let deviceName = "Unknown"
 #endif
-                let header = "Session started: \(sessionStart)\nGame: \(gameTitle)\nTitle ID: \(titleId)\nApp: \(appVersion) (\(appBuild))\nOS: \(osVersion)\nDevice: \(deviceName)\n\n"
+                let header = "Session started: \(Date())\nGame: \(gameTitle)\nTitle ID: \(titleId)\nApp: \(appVersion) (\(appBuild))\nOS: \(osVersion)\nDevice: \(deviceName)\n\n"
                 if let data = header.data(using: .utf8) {
                     try handle.write(contentsOf: data)
                 }
@@ -148,8 +143,7 @@ final class LogCapture: ObservableObject {
         }
 
         UserDefaults.standard.set(logURL.path, forKey: Self.activeSessionPathKey)
-        UserDefaults.standard.set(sessionStart.timeIntervalSince1970, forKey: Self.activeSessionStartedAtKey)
-        startSessionHeartbeatDiagnostics()
+        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: Self.activeSessionStartedAtKey)
     }
 
     private func appendCapturedLog(_ logLine: String) {
@@ -160,7 +154,6 @@ final class LogCapture: ObservableObject {
     }
 
     func endGameSessionLog() {
-        stopSessionHeartbeatDiagnostics()
         logDiagnostic("Session finished normally")
 
         fileIOQueue.sync {
@@ -170,66 +163,10 @@ final class LogCapture: ObservableObject {
         UserDefaults.standard.removeObject(forKey: Self.activeSessionPathKey)
         UserDefaults.standard.removeObject(forKey: Self.activeSessionStartedAtKey)
         sessionLogURL = nil
-        sessionStartedAt = nil
     }
 
     func logDiagnostic(_ message: String) {
         appendToSessionLog("[DIAG] \(message)")
-    }
-
-    private func startSessionHeartbeatDiagnostics() {
-        stopSessionHeartbeatDiagnostics()
-
-        let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global(qos: .utility))
-        timer.schedule(deadline: .now() + .seconds(15), repeating: .seconds(20))
-        timer.setEventHandler { [weak self] in
-            self?.emitSessionHeartbeatDiagnostics()
-        }
-        sessionHeartbeatTimer = timer
-        timer.resume()
-    }
-
-    private func stopSessionHeartbeatDiagnostics() {
-        sessionHeartbeatTimer?.setEventHandler {}
-        sessionHeartbeatTimer?.cancel()
-        sessionHeartbeatTimer = nil
-    }
-
-    private func emitSessionHeartbeatDiagnostics() {
-        let uptimeText: String
-        if let sessionStartedAt {
-            uptimeText = String(format: "%.1f", Date().timeIntervalSince(sessionStartedAt))
-        } else {
-            uptimeText = "unknown"
-        }
-
-        let residentBytes = currentResidentMemoryBytes() ?? 0
-        let residentMb = Double(residentBytes) / (1024.0 * 1024.0)
-
-        var details = "Heartbeat: uptime=\(uptimeText)s, rssMB=\(String(format: "%.1f", residentMb)), emuRunning=\(Ryujinx.shared.isRunning)"
-
-#if canImport(UIKit)
-        details += ", thermal=\(ProcessInfo.processInfo.thermalState.rawValue), lowPower=\(ProcessInfo.processInfo.isLowPowerModeEnabled), appState=\(UIApplication.shared.applicationState.rawValue)"
-#endif
-
-        logDiagnostic(details)
-    }
-
-    private func currentResidentMemoryBytes() -> UInt64? {
-        var info = mach_task_basic_info_data_t()
-        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info_data_t>.size / MemoryLayout<natural_t>.size)
-
-        let result: kern_return_t = withUnsafeMutablePointer(to: &info) {
-            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
-                task_info(mach_task_self_, task_flavor_t(MACH_TASK_BASIC_INFO), $0, &count)
-            }
-        }
-
-        guard result == KERN_SUCCESS else {
-            return nil
-        }
-
-        return UInt64(info.resident_size)
     }
 
     private func appendToSessionLog(_ logLine: String) {
