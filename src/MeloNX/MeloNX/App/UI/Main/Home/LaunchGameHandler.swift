@@ -165,6 +165,12 @@ class LaunchGameHandler: ObservableObject {
                     config.enableDockedMode = true
                 }
 
+                if config.enableShaderCache {
+                    print("[MeloNX] Eastward compatibility profile: disabling Shader Cache")
+                    config.enableShaderCache = false
+                    LogCapture.shared.logDiagnostic("Eastward compatibility: forcing config.enableShaderCache=false to reduce Vulkan cache-related stalls")
+                }
+
                 let hadManualDisableShaderCacheArg = config.additionalArgs.contains {
                     $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--disable-shader-cache"
                 }
