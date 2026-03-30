@@ -650,6 +650,16 @@ namespace Ryujinx.Headless.SDL2
 
             bool ignoreUnknownArguments = OperatingSystem.IsIOS();
 
+            if (OperatingSystem.IsIOS())
+            {
+                args = SanitizeStandaloneOptionDuplicates(args, out string preRemovedFlags);
+
+                if (!string.IsNullOrEmpty(preRemovedFlags))
+                {
+                    Logger.Warning?.Print(LogClass.Application, $"Pre-sanitized duplicate standalone launch flags: {preRemovedFlags}");
+                }
+            }
+
             if (TryParseOptions(args, ignoreUnknownArguments, out Options parsedOptions, out string parseErrors))
             {
                 Load(parsedOptions);

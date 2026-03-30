@@ -810,11 +810,6 @@ namespace Ryujinx.HLE.HOS
 
         private static bool ShouldDisableModInjection(ulong applicationId)
         {
-            if (!OperatingSystem.IsIOS())
-            {
-                return false;
-            }
-
             ulong normalizedTitleId = applicationId & ~0xFul;
 
             return normalizedTitleId == EastwardTitleIdBase;

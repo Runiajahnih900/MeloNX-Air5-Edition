@@ -162,6 +162,18 @@ class LaunchGameHandler: ObservableObject {
                     config.enableDockedMode = true
                 }
 
+                let hadManualDisableShaderCacheArg = config.additionalArgs.contains {
+                    $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--disable-shader-cache"
+                }
+
+                if hadManualDisableShaderCacheArg {
+                    config.enableShaderCache = false
+                    config.additionalArgs.removeAll {
+                        $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--disable-shader-cache"
+                    }
+                    LogCapture.shared.logDiagnostic("Eastward compatibility: normalized --disable-shader-cache into config.enableShaderCache=false")
+                }
+
                 if crashForensicsMode || eastwardSceneForensicsMode {
                     config.additionalArgs.removeAll { $0 == "--disable-guest-logs" || $0 == "--disable-stub-logs" }
                     LogCapture.shared.logDiagnostic("Eastward forensics active: guest/stub logs left enabled for scene diagnostics")

@@ -86,8 +86,15 @@ namespace Ryujinx.HLE.Loaders.Processes.Extensions
             bool enablePtc = device.System.EnablePtc && !modLoadResult.Modified;
             if (!enablePtc)
             {
-                string exefsSummary = GetExeFsModificationSummary(modLoadResult);
-                Logger.Warning?.Print(LogClass.Ptc, $"Detected unsupported ExeFs modifications. PTC disabled. ProgramId={programId:x16}. {exefsSummary}");
+                if (modLoadResult.Modified)
+                {
+                    string exefsSummary = GetExeFsModificationSummary(modLoadResult);
+                    Logger.Warning?.Print(LogClass.Ptc, $"Detected unsupported ExeFs modifications. PTC disabled. ProgramId={programId:x16}. {exefsSummary}");
+                }
+                else
+                {
+                    Logger.Info?.Print(LogClass.Ptc, $"PTC disabled by configuration for ProgramId={programId:x16}.");
+                }
             }
 
             string programName = "";

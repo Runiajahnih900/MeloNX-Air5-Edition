@@ -404,8 +404,12 @@ class Ryujinx : ObservableObject {
     private func summarizeArgOptions(_ args: [String]) -> String {
         var optionCounts: [String: Int] = [:]
 
-        for token in args where token.hasPrefix("--") {
-            optionCounts[token, default: 0] += 1
+        for token in args {
+            let normalized = token.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if normalized.hasPrefix("--") {
+                optionCounts[normalized, default: 0] += 1
+            }
         }
 
         if optionCounts.isEmpty {
@@ -435,7 +439,12 @@ class Ryujinx : ObservableObject {
 
         var index = 1
         while index < args.count {
-            let token = args[index]
+            let token = args[index].trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if token.isEmpty {
+                index += 1
+                continue
+            }
 
             if !token.hasPrefix("--") {
                 sanitized.append(token)
@@ -443,19 +452,24 @@ class Ryujinx : ObservableObject {
                 continue
             }
 
-            let hasValue = index + 1 < args.count && !args[index + 1].hasPrefix("--")
+            let nextToken = index + 1 < args.count
+                ? args[index + 1].trimmingCharacters(in: .whitespacesAndNewlines)
+                : ""
+
+            let hasValue = !nextToken.isEmpty && !nextToken.hasPrefix("--")
+            let normalizedStandaloneFlag = token.lowercased()
 
             if hasValue {
                 sanitized.append(token)
-                sanitized.append(args[index + 1])
+                sanitized.append(nextToken)
                 index += 2
                 continue
             }
 
-            if seenStandaloneFlags.insert(token).inserted {
+            if seenStandaloneFlags.insert(normalizedStandaloneFlag).inserted {
                 sanitized.append(token)
             } else {
-                removed.append(token)
+                removed.append(normalizedStandaloneFlag)
             }
 
             index += 1
@@ -638,7 +652,13 @@ class Ryujinx : ObservableObject {
             }
         }
         
-        args.append(contentsOf: config.additionalArgs)
+        for additionalArg in config.additionalArgs {
+            let trimmed = additionalArg.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if !trimmed.isEmpty {
+                args.append(trimmed)
+            }
+        }
         
         return args
     }

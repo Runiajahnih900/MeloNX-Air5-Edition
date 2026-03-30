@@ -442,7 +442,7 @@ namespace Ryujinx.Graphics.Vulkan
 
                 primitiveRestartEnable &= topologySupportsRestart;
 
-                if (isMoltenVk && topologySupportsRestart && !primitiveRestartEnable)
+                if (isMoltenVk && !primitiveRestartEnable)
                 {
                     // MoltenVK on Metal may not support disabling primitive restart on some topologies.
                     // Request enabled restart to match runtime behavior and avoid repeated unsupported-state warnings.
