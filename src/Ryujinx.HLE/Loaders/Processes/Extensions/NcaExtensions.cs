@@ -79,7 +79,14 @@ namespace Ryujinx.HLE.Loaders.Processes.Extensions
             }
             else
             {
-                romFs = device.Configuration.VirtualFileSystem.ModLoader.ApplyRomFsMods(processResult.ProgramId, romFs);
+                if (TitleCompatibility.ShouldDisableModInjection(processResult.ProgramId))
+                {
+                    Logger.Warning?.Print(LogClass.Loader, $"Compatibility mode enabled for title {processResult.ProgramId:x16} on iOS. Skipping RomFS mod injection.");
+                }
+                else
+                {
+                    romFs = device.Configuration.VirtualFileSystem.ModLoader.ApplyRomFsMods(processResult.ProgramId, romFs);
+                }
 
                 device.Configuration.VirtualFileSystem.SetRomFs(processResult.ProcessId, romFs.AsStream(FileAccess.Read));
             }

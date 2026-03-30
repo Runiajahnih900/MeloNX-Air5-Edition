@@ -425,7 +425,14 @@ namespace Ryujinx.HLE.Loaders.Processes
                 process.MemoryManager.CodeRegionStart);
 
             // Once everything is loaded, we can load cheats.
-            device.Configuration.VirtualFileSystem.ModLoader.LoadCheats(programId, tamperInfo, device.TamperMachine);
+            if (TitleCompatibility.ShouldDisableModInjection(programId))
+            {
+                Logger.Warning?.Print(LogClass.Loader, $"Compatibility mode enabled for title {programId:x16} on iOS. Skipping cheat injection.");
+            }
+            else
+            {
+                device.Configuration.VirtualFileSystem.ModLoader.LoadCheats(programId, tamperInfo, device.TamperMachine);
+            }
 
             ProcessResult processResult = new(
                 metaLoader,
