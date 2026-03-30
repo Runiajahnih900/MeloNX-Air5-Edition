@@ -3,6 +3,7 @@ using LibHac.Tools.FsSystem;
 using Ryujinx.Audio.Backends.SDL2;
 using Ryujinx.Audio.Backends.Dummy;
 using Ryujinx.Audio.Backends.Apple;
+using Ryujinx.Audio.Integration;
 using Ryujinx.Common.Configuration;
 using Ryujinx.Common.Configuration.Hid;
 using Ryujinx.Common.Configuration.Hid.Controller;
@@ -1867,7 +1868,7 @@ namespace Ryujinx.Headless.SDL2
             // idk :3
             HLE.HOS.Services.Nifm.StaticService.AnyInternetRequestAccepted.isAnyInternetRequestAccepted = options.EnableInternetAccess;
 
-            var audioDriver = options.ForceDummyAudio
+            IHardwareDeviceDriver audioDriver = options.ForceDummyAudio
                 ? new DummyHardwareDeviceDriver()
                 : new SDL2HardwareDeviceDriver();
 

@@ -98,7 +98,6 @@
     <ProjectReference Include="..\Ryujinx.Graphics.Vulkan\Ryujinx.Graphics.Vulkan.csproj" />
     <ProjectReference Include="..\Ryujinx.Input\Ryujinx.Input.csproj" />
     <ProjectReference Include="..\Ryujinx.Input.SDL2\Ryujinx.Input.SDL2.csproj" />
-    <ProjectReference Include="..\Ryujinx.Audio.Backends.Dummy\Ryujinx.Audio.Backends.Dummy.csproj" />
     <ProjectReference Include="..\Ryujinx.Audio.Backends.SDL2\Ryujinx.Audio.Backends.SDL2.csproj" />
     <ProjectReference Include="..\Ryujinx.Common\Ryujinx.Common.csproj" />
     <ProjectReference Include="..\Ryujinx.HLE\Ryujinx.HLE.csproj" />
