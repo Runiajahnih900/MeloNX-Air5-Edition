@@ -63,6 +63,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using Ryujinx.Input.Native;
 
+#pragma warning disable CS8632
+
 namespace Ryujinx.Headless.SDL2
 {
     class Program

@@ -19,7 +19,7 @@ namespace Ryujinx.Headless.SDL2
         private bool _isDisposed;
         private readonly HideCursorMode _hideCursorMode;
         private bool _isHidden;
-        private long _lastCursorMoveTime;
+        private long _lastCursorMoveTime = Stopwatch.GetTimestamp();
 
         public bool[] PressedButtons { get; }
         public Vector2[] CurrentPosition => _activeTouches.Values.ToArray();

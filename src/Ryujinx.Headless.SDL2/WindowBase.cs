@@ -44,7 +44,7 @@ namespace Ryujinx.Headless.SDL2
             _mainThreadActions.Enqueue(action);
         }
 
-        public bool _isPaused;
+        public bool _isPaused = false;
         public ManualResetEvent _pauseEvent;
 
         public NpadManager NpadManager;
