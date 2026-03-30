@@ -1849,8 +1849,14 @@ namespace Ryujinx.Headless.SDL2
         private static Switch InitializeEmulationContext(WindowBase window, IRenderer renderer, Options options)
         {
             BackendThreading threadingMode = options.BackendThreading;
+            bool threadedGAL = threadingMode == BackendThreading.On || (threadingMode == BackendThreading.Auto && renderer.PreferThreading);
 
-            renderer = new ThreadedRenderer(renderer);
+            if (threadedGAL)
+            {
+                renderer = new ThreadedRenderer(renderer);
+            }
+
+            Logger.Info?.Print(LogClass.Gpu, $"Backend Threading ({threadingMode}): {threadedGAL}");
 
             bool AppleHV = false;
 

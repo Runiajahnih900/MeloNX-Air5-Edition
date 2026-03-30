@@ -184,6 +184,19 @@ class LaunchGameHandler: ObservableObject {
                     LogCapture.shared.logDiagnostic("Eastward compatibility: forcing dummy audio backend for iOS stability test (no sound output)")
                 }
 
+                if let backendThreadingIndex = config.additionalArgs.firstIndex(where: {
+                    $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--backend-threading"
+                }) {
+                    if backendThreadingIndex + 1 < config.additionalArgs.count {
+                        config.additionalArgs.remove(at: backendThreadingIndex + 1)
+                    }
+
+                    config.additionalArgs.remove(at: backendThreadingIndex)
+                }
+
+                config.additionalArgs.append(contentsOf: ["--backend-threading", "Off"])
+                LogCapture.shared.logDiagnostic("Eastward compatibility: forcing --backend-threading Off to avoid iOS render-thread stalls")
+
                 if eastwardSceneForensicsMode {
                     config.additionalArgs.removeAll {
                         $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--disable-guest-logs"
