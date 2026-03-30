@@ -176,7 +176,7 @@ class LaunchGameHandler: ObservableObject {
                     LogCapture.shared.logDiagnostic("Eastward compatibility: normalized --disable-shader-cache into config.enableShaderCache=false")
                 }
 
-                if crashForensicsMode || eastwardSceneForensicsMode {
+                if eastwardSceneForensicsMode {
                     config.additionalArgs.removeAll {
                         $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--disable-guest-logs"
                     }
@@ -194,12 +194,20 @@ class LaunchGameHandler: ObservableObject {
                         LogCapture.shared.logDiagnostic("Eastward forensics active: guest logs enabled, stub logs disabled to reduce scene-stall log flood")
                     }
                 } else {
-                    if !config.additionalArgs.contains("--disable-guest-logs") {
+                    if !config.additionalArgs.contains(where: {
+                        $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--disable-guest-logs"
+                    }) {
                         config.additionalArgs.append("--disable-guest-logs")
                     }
 
-                    if !config.additionalArgs.contains("--disable-stub-logs") {
+                    if !config.additionalArgs.contains(where: {
+                        $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--disable-stub-logs"
+                    }) {
                         config.additionalArgs.append("--disable-stub-logs")
+                    }
+
+                    if crashForensicsMode {
+                        LogCapture.shared.logDiagnostic("Eastward stability mode active: guest/stub logs disabled by default. Enable Eastward Scene Forensics to capture scene-level guest logs.")
                     }
                 }
             }
