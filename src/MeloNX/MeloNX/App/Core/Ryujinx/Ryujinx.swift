@@ -141,7 +141,13 @@ class Ryujinx : ObservableObject {
             let url = URL(string: config.gamepath)
             
             do {
-                let args = self.buildCommandLineArgs(from: config)
+                let rawArgs = self.buildCommandLineArgs(from: config)
+                let (args, removedStandaloneDuplicates) = self.sanitizeStandaloneOptionDuplicates(rawArgs)
+
+                if !removedStandaloneDuplicates.isEmpty {
+                    LogCapture.shared.logDiagnostic("Launch args sanitized: removed duplicate standalone flags: \(removedStandaloneDuplicates.joined(separator: ", "))")
+                }
+
                 LogCapture.shared.logDiagnostic("Launch argv count=\(args.count)")
                 LogCapture.shared.logDiagnostic("Launch argv=\(args.joined(separator: " "))")
                 LogCapture.shared.logDiagnostic("Launch options summary=\(self.summarizeArgOptions(args))")
@@ -416,6 +422,46 @@ class Ryujinx : ObservableObject {
         }
 
         return "uniqueOptions=\(optionCounts.count), duplicates=\(duplicates.joined(separator: ","))"
+    }
+
+    private func sanitizeStandaloneOptionDuplicates(_ args: [String]) -> ([String], [String]) {
+        guard args.count > 1 else {
+            return (args, [])
+        }
+
+        var sanitized: [String] = [args[0]]
+        var removed: [String] = []
+        var seenStandaloneFlags = Set<String>()
+
+        var index = 1
+        while index < args.count {
+            let token = args[index]
+
+            if !token.hasPrefix("--") {
+                sanitized.append(token)
+                index += 1
+                continue
+            }
+
+            let hasValue = index + 1 < args.count && !args[index + 1].hasPrefix("--")
+
+            if hasValue {
+                sanitized.append(token)
+                sanitized.append(args[index + 1])
+                index += 2
+                continue
+            }
+
+            if seenStandaloneFlags.insert(token).inserted {
+                sanitized.append(token)
+            } else {
+                removed.append(token)
+            }
+
+            index += 1
+        }
+
+        return (sanitized, removed)
     }
     
     

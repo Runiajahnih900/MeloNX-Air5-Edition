@@ -442,6 +442,13 @@ namespace Ryujinx.Graphics.Vulkan
 
                 primitiveRestartEnable &= topologySupportsRestart;
 
+                if (isMoltenVk && topologySupportsRestart && !primitiveRestartEnable)
+                {
+                    // MoltenVK on Metal may not support disabling primitive restart on some topologies.
+                    // Request enabled restart to match runtime behavior and avoid repeated unsupported-state warnings.
+                    primitiveRestartEnable = true;
+                }
+
                 var inputAssemblyState = new PipelineInputAssemblyStateCreateInfo
                 {
                     SType = StructureType.PipelineInputAssemblyStateCreateInfo,
