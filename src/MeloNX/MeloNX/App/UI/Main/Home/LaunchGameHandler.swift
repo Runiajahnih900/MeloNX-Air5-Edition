@@ -113,6 +113,7 @@ class LaunchGameHandler: ObservableObject {
         let crashForensicsMode = nativeSettings.setting(forKey: "crashForensicsMode", default: true).value
         let eastwardSceneForensicsMode = nativeSettings.setting(forKey: "eastwardSceneForensicsMode", default: false).value
         let allowUnsafeVerboseLogs = nativeSettings.setting(forKey: "allowUnsafeVerboseLogs", default: false).value
+        let allowStubLogs = nativeSettings.setting(forKey: "allowStubLogs", default: false).value
 
         if eastwardSceneForensicsMode {
             config.debuglogs = true
@@ -132,9 +133,10 @@ class LaunchGameHandler: ObservableObject {
         if !ProcessInfo.processInfo.isiOSAppOnMac {
             let normalizedTitleId = currentGame.titleId.lowercased()
             if normalizedTitleId == "010071b00f63a000" {
-                if config.memoryManagerMode != "HostMappedUnsafe" {
-                    print("[MeloNX] Eastward compatibility profile: memory mode \(config.memoryManagerMode) -> HostMappedUnsafe")
-                    config.memoryManagerMode = "HostMappedUnsafe"
+                let targetMemoryMode = "HostMapped"
+                if config.memoryManagerMode != targetMemoryMode {
+                    print("[MeloNX] Eastward compatibility profile: memory mode \(config.memoryManagerMode) -> \(targetMemoryMode)")
+                    config.memoryManagerMode = targetMemoryMode
                 }
 
                 if config.expandRam {
@@ -175,8 +177,22 @@ class LaunchGameHandler: ObservableObject {
                 }
 
                 if crashForensicsMode || eastwardSceneForensicsMode {
-                    config.additionalArgs.removeAll { $0 == "--disable-guest-logs" || $0 == "--disable-stub-logs" }
-                    LogCapture.shared.logDiagnostic("Eastward forensics active: guest/stub logs left enabled for scene diagnostics")
+                    config.additionalArgs.removeAll {
+                        $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--disable-guest-logs"
+                    }
+
+                    if allowStubLogs {
+                        config.additionalArgs.removeAll {
+                            $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--disable-stub-logs"
+                        }
+                        LogCapture.shared.logDiagnostic("Eastward forensics active: guest logs enabled, stub logs enabled by user override")
+                    } else {
+                        config.additionalArgs.removeAll {
+                            $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--disable-stub-logs"
+                        }
+                        config.additionalArgs.append("--disable-stub-logs")
+                        LogCapture.shared.logDiagnostic("Eastward forensics active: guest logs enabled, stub logs disabled to reduce scene-stall log flood")
+                    }
                 } else {
                     if !config.additionalArgs.contains("--disable-guest-logs") {
                         config.additionalArgs.append("--disable-guest-logs")
