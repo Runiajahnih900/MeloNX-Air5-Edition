@@ -323,7 +323,7 @@ namespace Ryujinx.Headless.SDL2
             {
                 return new Nca(_virtualFileSystem.KeySet, ncaStorage);
             }
-            catch (Exception exception)
+            catch (Exception)
             {
                 // ignored
             }
@@ -534,13 +534,14 @@ namespace Ryujinx.Headless.SDL2
         private static bool TryParseOptions(string[] args, bool ignoreUnknownArguments, out Options parsedOptions, out string parseErrors)
         {
             parsedOptions = null;
+            Options parsed = null;
             List<string> errors = new();
 
             try
             {
                 CreateParser(ignoreUnknownArguments)
                     .ParseArguments<Options>(args)
-                    .WithParsed(options => parsedOptions = options)
+                    .WithParsed(options => parsed = options)
                     .WithNotParsed(parseResultErrors =>
                     {
                         errors.AddRange(parseResultErrors.Select(error => error.Tag.ToString()));
@@ -553,6 +554,8 @@ namespace Ryujinx.Headless.SDL2
             }
 
             parseErrors = errors.Count == 0 ? string.Empty : string.Join(", ", errors.Distinct());
+
+            parsedOptions = parsed;
 
             return parsedOptions != null;
         }
