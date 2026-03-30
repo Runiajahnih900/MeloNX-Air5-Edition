@@ -426,6 +426,8 @@ class Ryujinx : ObservableObject {
     
     func buildCommandLineArgs(from config: Arguments) -> [String] {
         var args: [String] = []
+        let lowercasedGamePath = config.gamepath.lowercased()
+        let isEastwardLaunch = lowercasedGamePath.contains("010071b00f63a000")
         
         // Add the game path
         args.append(config.gamepath)
@@ -561,12 +563,16 @@ class Ryujinx : ObservableObject {
             let allowGuestLogs = NativeSettingsManager.shared.setting(forKey: "allowGuestLogs", default: false).value
             let allowStubLogs = NativeSettingsManager.shared.setting(forKey: "allowStubLogs", default: false).value
 
-            if !crashForensicsMode && !allowGuestLogs {
-                args.append("--disable-guest-logs")
-            }
+            if isEastwardLaunch {
+                LogCapture.shared.logDiagnostic("Eastward diagnostics: forcing guest/stub logs enabled for startup and scene-stall analysis")
+            } else {
+                if !crashForensicsMode && !allowGuestLogs {
+                    args.append("--disable-guest-logs")
+                }
 
-            if !crashForensicsMode && !allowStubLogs {
-                args.append("--disable-stub-logs")
+                if !crashForensicsMode && !allowStubLogs {
+                    args.append("--disable-stub-logs")
+                }
             }
         }
         
@@ -598,8 +604,53 @@ class Ryujinx : ObservableObject {
         }
         
         args.append(contentsOf: config.additionalArgs)
-        
-        return args
+
+        return sanitizeCommandLineArgs(args)
+    }
+
+    private func sanitizeCommandLineArgs(_ args: [String]) -> [String] {
+        guard !args.isEmpty else {
+            return args
+        }
+
+        var sanitizedArgs: [String] = [args[0]]
+        var seenStandaloneFlags = Set<String>()
+        var removedFlags: [String] = []
+        var removedSet = Set<String>()
+        var index = 1
+
+        while index < args.count {
+            let token = args[index]
+
+            if token.hasPrefix("--") {
+                let hasValue = index + 1 < args.count && !args[index + 1].hasPrefix("--")
+
+                if hasValue {
+                    sanitizedArgs.append(token)
+                    sanitizedArgs.append(args[index + 1])
+                    index += 2
+                    continue
+                }
+
+                if seenStandaloneFlags.insert(token).inserted {
+                    sanitizedArgs.append(token)
+                } else if removedSet.insert(token).inserted {
+                    removedFlags.append(token)
+                }
+
+                index += 1
+                continue
+            }
+
+            sanitizedArgs.append(token)
+            index += 1
+        }
+
+        if !removedFlags.isEmpty {
+            LogCapture.shared.logDiagnostic("Launch args sanitized: removed duplicate standalone flags: \(removedFlags.joined(separator: ", "))")
+        }
+
+        return sanitizedArgs
     }
     
     func reloadControllersWithInfo() {

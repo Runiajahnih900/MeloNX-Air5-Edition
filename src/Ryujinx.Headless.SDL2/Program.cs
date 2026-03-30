@@ -383,9 +383,14 @@ namespace Ryujinx.Headless.SDL2
                     }
     
                     ControllerOptions options = null;
-                    Parser.Default.ParseArguments<ControllerOptions>(args)
-                    .WithParsed(option => options = option)
-                    .WithNotParsed(errors => errors.Output());
+                    CreateParser(ignoreUnknownArguments: OperatingSystem.IsIOS())
+                        .ParseArguments<ControllerOptions>(args)
+                        .WithParsed(option => options = option)
+                        .WithNotParsed(errors =>
+                        {
+                            string errorSummary = string.Join(", ", errors.Select(error => error.Tag.ToString()).Distinct());
+                            Logger.Warning?.Print(LogClass.Application, $"Failed to parse gamepad configuration args. Errors: {errorSummary}");
+                        });
                     return options;
                 }
                 catch (Exception e)
@@ -513,6 +518,94 @@ namespace Ryujinx.Headless.SDL2
         [UnmanagedCallersOnly(EntryPoint = "initialize-dualmapped")]
         public static unsafe bool InitializeDM() => Cpu.LightningJit.DualMappedTranslator.InitializeDualMapped();
 
+        private static Parser CreateParser(bool ignoreUnknownArguments = false)
+        {
+            return new Parser(settings =>
+            {
+                settings.HelpWriter = null;
+                settings.AutoHelp = false;
+                settings.AutoVersion = false;
+                settings.IgnoreUnknownArguments = ignoreUnknownArguments;
+            });
+        }
+
+        private static bool TryParseOptions(string[] args, bool ignoreUnknownArguments, out Options parsedOptions, out string parseErrors)
+        {
+            parsedOptions = null;
+            List<string> errors = new();
+
+            try
+            {
+                CreateParser(ignoreUnknownArguments)
+                    .ParseArguments<Options>(args)
+                    .WithParsed(options => parsedOptions = options)
+                    .WithNotParsed(parseResultErrors =>
+                    {
+                        errors.AddRange(parseResultErrors.Select(error => error.Tag.ToString()));
+                    });
+            }
+            catch (Exception ex)
+            {
+                parseErrors = $"{ex.GetType().Name}: {ex.Message}";
+                return false;
+            }
+
+            parseErrors = errors.Count == 0 ? string.Empty : string.Join(", ", errors.Distinct());
+
+            return parsedOptions != null;
+        }
+
+        private static string[] SanitizeStandaloneOptionDuplicates(string[] args, out string removedFlags)
+        {
+            removedFlags = string.Empty;
+
+            if (args == null || args.Length <= 1)
+            {
+                return args ?? Array.Empty<string>();
+            }
+
+            List<string> sanitizedArgs = new() { args[0] };
+            HashSet<string> seenStandaloneFlags = new(StringComparer.Ordinal);
+            List<string> removed = new();
+
+            for (int i = 1; i < args.Length; i++)
+            {
+                string token = args[i] ?? string.Empty;
+
+                if (!token.StartsWith("--", StringComparison.Ordinal))
+                {
+                    sanitizedArgs.Add(token);
+                    continue;
+                }
+
+                bool hasValue = i + 1 < args.Length && !(args[i + 1]?.StartsWith("--", StringComparison.Ordinal) ?? false);
+
+                if (hasValue)
+                {
+                    sanitizedArgs.Add(token);
+                    sanitizedArgs.Add(args[i + 1]);
+                    i++;
+                    continue;
+                }
+
+                if (seenStandaloneFlags.Add(token))
+                {
+                    sanitizedArgs.Add(token);
+                }
+                else
+                {
+                    removed.Add(token);
+                }
+            }
+
+            if (removed.Count != 0)
+            {
+                removedFlags = string.Join(", ", removed.Distinct());
+            }
+
+            return sanitizedArgs.ToArray();
+        }
+
         static void Main(string[] args)
         {
             // Make process DPI aware for proper window sizing on high-res screens.
@@ -550,9 +643,37 @@ namespace Ryujinx.Headless.SDL2
                 MVKInitialization.InitializeResolver();
             }
 
-            Parser.Default.ParseArguments<Options>(args)
-            .WithParsed(Load)
-            .WithNotParsed(errors => errors.Output());
+            bool ignoreUnknownArguments = OperatingSystem.IsIOS();
+
+            if (TryParseOptions(args, ignoreUnknownArguments, out Options parsedOptions, out string parseErrors))
+            {
+                Load(parsedOptions);
+                return;
+            }
+
+            Logger.Error?.Print(LogClass.Application, $"Failed to parse launch args. Errors: {parseErrors}");
+
+            if (!OperatingSystem.IsIOS())
+            {
+                return;
+            }
+
+            string[] sanitizedArgs = SanitizeStandaloneOptionDuplicates(args, out string removedFlags);
+
+            if (string.IsNullOrEmpty(removedFlags))
+            {
+                return;
+            }
+
+            Logger.Warning?.Print(LogClass.Application, $"Retrying arg parse after removing duplicate standalone flags: {removedFlags}");
+
+            if (TryParseOptions(sanitizedArgs, ignoreUnknownArguments: true, out parsedOptions, out parseErrors))
+            {
+                Load(parsedOptions);
+                return;
+            }
+
+            Logger.Error?.Print(LogClass.Application, $"Retry parse failed. Errors: {parseErrors}");
         }
     
         [UnmanagedCallersOnly(EntryPoint = "install_firmware")]
@@ -2071,12 +2192,19 @@ namespace Ryujinx.Headless.SDL2
                 }
 
                 Options parsedOptions = null;
-                Parser.Default.ParseArguments<Options>(args)
-                    .WithParsed(opts => parsedOptions = opts);
+                string parseErrorSummary = string.Empty;
+
+                CreateParser(ignoreUnknownArguments: OperatingSystem.IsIOS())
+                    .ParseArguments<Options>(args)
+                    .WithParsed(opts => parsedOptions = opts)
+                    .WithNotParsed(errors =>
+                    {
+                        parseErrorSummary = string.Join(", ", errors.Select(error => error.Tag.ToString()).Distinct());
+                    });
 
                 if (parsedOptions == null)
                 {
-                    Console.WriteLine("Failed to parse options.");
+                    Console.WriteLine($"Failed to parse options. Errors: {parseErrorSummary}");
                     return -1;
                 }
 
