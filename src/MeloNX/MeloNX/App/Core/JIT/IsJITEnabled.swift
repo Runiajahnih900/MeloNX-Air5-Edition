@@ -15,8 +15,22 @@ func isJITEnabled() -> Bool {
     if checkAppEntitlement("dynamic-codesigning") {
         return allocateTest()
     }
-    
-    LaunchGameHandler.succeededJIT = RyujinxBridge.initialize_dualmapped()
+
+    let nativeSettings = NativeSettingsManager.shared
+    let requestedDualMappedJIT: Bool
+
+    if #available(iOS 19, *) {
+        requestedDualMappedJIT = nativeSettings.setting(forKey: "DUAL_MAPPED_JIT", default: true).value
+    } else {
+        requestedDualMappedJIT = nativeSettings.setting(forKey: "DUAL_MAPPED_JIT", default: false).value
+    }
+
+    let shouldInitializeDualMappedJIT = requestedDualMappedJIT && !ProcessInfo.processInfo.isiOSAppOnMac
+    if shouldInitializeDualMappedJIT {
+        LaunchGameHandler.succeededJIT = RyujinxBridge.initialize_dualmapped()
+    } else {
+        LaunchGameHandler.succeededJIT = true
+    }
     
     if #available(iOS 19, *) {
         return checkDebugged() && LaunchGameHandler.succeededJIT

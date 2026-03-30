@@ -55,6 +55,7 @@ class Ryujinx : ObservableObject {
     
     // Ryujinx Thread
     var runner = Runner()
+    private var activeLaunchToken: UUID?
     
     static let shared = Ryujinx()
     
@@ -68,6 +69,22 @@ class Ryujinx : ObservableObject {
     
     func runloop(_ cool: @escaping () -> Void) {
         runner.start(cool)
+    }
+
+    private func armLaunchWatchdog(token: UUID, gamePath: String) {
+        let checkpoints = [10, 30, 60, 120]
+
+        for seconds in checkpoints {
+            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + .seconds(seconds)) { [weak self] in
+                guard let self,
+                      self.isRunning,
+                      self.activeLaunchToken == token else {
+                    return
+                }
+
+                LogCapture.shared.logDiagnostic("Launch watchdog: core still running after \(seconds)s for gamePath=\(gamePath). If loading screen is unchanged, likely stuck during startup/scene transition.")
+            }
+        }
     }
     
     
@@ -131,37 +148,47 @@ class Ryujinx : ObservableObject {
             throw RyujinxError.alreadyRunning
         }
         
+        let launchToken = UUID()
+        activeLaunchToken = launchToken
         
         self.config = config
         
         self.isRunning = true
+        LogCapture.shared.logDiagnostic("Launch stage: start accepted, token=\(launchToken.uuidString), gamePath=\(config.gamepath)")
         
         
         runloop { [self] in
-            let url = URL(string: config.gamepath)
+            let url = URL(fileURLWithPath: config.gamepath)
             
             do {
                 let args = self.buildCommandLineArgs(from: config)
+                let tokenShort = String(launchToken.uuidString.prefix(8))
                 LogCapture.shared.logDiagnostic("Launch argv count=\(args.count)")
                 LogCapture.shared.logDiagnostic("Launch argv=\(args.joined(separator: " "))")
-                let accessing = url?.startAccessingSecurityScopedResource()
+                let accessing = url.startAccessingSecurityScopedResource()
+                LogCapture.shared.logDiagnostic("Launch stage: arming startup watchdog token=\(tokenShort)")
+                self.armLaunchWatchdog(token: launchToken, gamePath: config.gamepath)
                 
                 // Start the emulation
                 if isRunning {
+                    LogCapture.shared.logDiagnostic("Launch stage: entering core entrypoint mainRyu token=\(tokenShort)")
                     let result = RyujinxBridge.mainRyu(argv: args)//main_ryujinx_sdl(Int32(args.count), &argvPtrs)
+                    LogCapture.shared.logDiagnostic("Launch stage: core entrypoint returned result=\(result) token=\(tokenShort)")
+                    self.activeLaunchToken = nil
+                    if accessing {
+                        url.stopAccessingSecurityScopedResource()
+                    }
                     
                     if result != 0 {
                         Task { @MainActor in
                             self.isRunning = false
-                        }
-                        if let accessing, accessing {
-                            url!.stopAccessingSecurityScopedResource()
                         }
                         
                         throw RyujinxError.executionError(code: Int32(result))
                     }
                 }
             } catch {
+                self.activeLaunchToken = nil
                 Task { @MainActor in
                     self.isRunning = false
                 }
@@ -310,6 +337,8 @@ class Ryujinx : ObservableObject {
         guard isRunning else {
             throw RyujinxError.notRunning
         }
+
+        activeLaunchToken = nil
         
         LogCapture.shared.endGameSessionLog()
         isRunning = false
