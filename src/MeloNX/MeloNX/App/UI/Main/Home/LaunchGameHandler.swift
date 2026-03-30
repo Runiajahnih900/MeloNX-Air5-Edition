@@ -114,6 +114,7 @@ class LaunchGameHandler: ObservableObject {
         let eastwardSceneForensicsMode = nativeSettings.setting(forKey: "eastwardSceneForensicsMode", default: false).value
         let allowUnsafeVerboseLogs = nativeSettings.setting(forKey: "allowUnsafeVerboseLogs", default: false).value
         let allowStubLogs = nativeSettings.setting(forKey: "allowStubLogs", default: false).value
+        LogCapture.shared.logDiagnostic("Forensics toggles: crashForensics=\(crashForensicsMode), eastwardSceneForensics=\(eastwardSceneForensicsMode), allowStubLogs=\(allowStubLogs), allowUnsafeVerboseLogs=\(allowUnsafeVerboseLogs)")
 
         if eastwardSceneForensicsMode {
             config.debuglogs = true

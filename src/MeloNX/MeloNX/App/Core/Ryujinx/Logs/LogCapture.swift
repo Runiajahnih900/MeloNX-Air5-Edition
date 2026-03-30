@@ -10,6 +10,9 @@ import Foundation
 #if canImport(UIKit)
 import UIKit
 #endif
+#if canImport(AVFAudio)
+import AVFAudio
+#endif
 
 final class LogCapture: ObservableObject {
     static let shared = LogCapture()
@@ -271,6 +274,14 @@ final class LogCapture: ObservableObject {
             self?.logDiagnostic("iOS memory warning received")
         }
 
+        NotificationCenter.default.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: nil) { [weak self] _ in
+            self?.logDiagnostic("App will resign active")
+        }
+
+        NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: nil) { [weak self] _ in
+            self?.logDiagnostic("App became active")
+        }
+
         NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: nil) { [weak self] _ in
             self?.logDiagnostic("App entered background")
         }
@@ -284,6 +295,38 @@ final class LogCapture: ObservableObject {
             let thermalState = ProcessInfo.processInfo.thermalState
             self?.logDiagnostic("Thermal state changed: \(thermalState.rawValue)")
         }
+#if canImport(AVFAudio)
+        NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: nil) { [weak self] notification in
+            guard let self else { return }
+
+            let typeRaw = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
+            let type = AVAudioSession.InterruptionType(rawValue: typeRaw ?? 0)
+
+            switch type {
+            case .began:
+                self.logDiagnostic("Audio session interruption began")
+            case .ended:
+                let optionsRaw = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
+                let options = AVAudioSession.InterruptionOptions(rawValue: optionsRaw)
+                self.logDiagnostic("Audio session interruption ended (shouldResume=\(options.contains(.shouldResume)))")
+            default:
+                self.logDiagnostic("Audio session interruption event received (typeRaw=\(typeRaw ?? 0))")
+            }
+        }
+
+        NotificationCenter.default.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: nil) { [weak self] notification in
+            let reasonRaw = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt ?? 0
+            self?.logDiagnostic("Audio route changed (reason=\(reasonRaw))")
+        }
+
+        NotificationCenter.default.addObserver(forName: AVAudioSession.mediaServicesWereLostNotification, object: nil, queue: nil) { [weak self] _ in
+            self?.logDiagnostic("Audio media services were lost")
+        }
+
+        NotificationCenter.default.addObserver(forName: AVAudioSession.mediaServicesWereResetNotification, object: nil, queue: nil) { [weak self] _ in
+            self?.logDiagnostic("Audio media services were reset")
+        }
+#endif
 #endif
     }
 
