@@ -15,11 +15,20 @@ namespace Ryujinx.Horizon.LogManager.Ipc
     partial class LmLogger : ILmLogger
     {
         private const int MessageLengthLimit = 5000;
+        private const int GuestLogPerSecondLimit = 120;
+        private const int GuestLogDuplicateBurstLimit = 3;
+        private static readonly bool IsGuestLogFlowControlEnabled = OperatingSystem.IsIOS();
 
         private readonly LogService _log;
         private readonly ulong _pid;
+        private readonly object _guestLogFlowLock = new();
 
         private LogPacket _logPacket;
+        private long _guestLogWindowStartMs;
+        private int _guestLogWindowPrintedCount;
+        private int _guestLogWindowSuppressedCount;
+        private string _lastGuestLogFingerprint = string.Empty;
+        private int _lastGuestLogDuplicateCount;
 
         public LmLogger(LogService log, ulong pid)
         {
@@ -39,7 +48,18 @@ namespace Ryujinx.Horizon.LogManager.Ipc
 
             if (LogImpl(message))
             {
-                Logger.Guest?.Print(LogClass.ServiceLm, _logPacket.ToString());
+                string flowSummary;
+                bool shouldSuppress = ShouldSuppressGuestLog(out flowSummary);
+
+                if (!string.IsNullOrEmpty(flowSummary))
+                {
+                    Logger.Guest?.Print(LogClass.ServiceLm, flowSummary);
+                }
+
+                if (!shouldSuppress)
+                {
+                    Logger.Guest?.Print(LogClass.ServiceLm, _logPacket.ToString());
+                }
 
                 _logPacket = new LogPacket();
             }
@@ -166,6 +186,72 @@ namespace Ryujinx.Horizon.LogManager.Ipc
             } while ((encoded & 0x80) != 0);
 
             return true;
+        }
+
+        private bool ShouldSuppressGuestLog(out string flowSummary)
+        {
+            flowSummary = string.Empty;
+
+            if (!IsGuestLogFlowControlEnabled)
+            {
+                return false;
+            }
+
+            lock (_guestLogFlowLock)
+            {
+                long nowMs = Environment.TickCount64;
+
+                if (_guestLogWindowStartMs == 0)
+                {
+                    _guestLogWindowStartMs = nowMs;
+                }
+                else if (nowMs - _guestLogWindowStartMs >= 1000)
+                {
+                    if (_guestLogWindowSuppressedCount > 0)
+                    {
+                        flowSummary = $"Guest Log flow control: suppressed {_guestLogWindowSuppressedCount} ServiceLm entries in the last second (pid=0x{_pid:X}).";
+                    }
+
+                    _guestLogWindowStartMs = nowMs;
+                    _guestLogWindowPrintedCount = 0;
+                    _guestLogWindowSuppressedCount = 0;
+                }
+
+                string message = _logPacket.Message?.Trim() ?? string.Empty;
+
+                if (string.IsNullOrEmpty(message))
+                {
+                    _guestLogWindowSuppressedCount++;
+                    return true;
+                }
+
+                string fingerprint = $"{_logPacket.ProgramName}|{_logPacket.Thread}|{_logPacket.Filename}|{_logPacket.Line}|{message}";
+
+                if (string.Equals(fingerprint, _lastGuestLogFingerprint, StringComparison.Ordinal))
+                {
+                    _lastGuestLogDuplicateCount++;
+
+                    if (_lastGuestLogDuplicateCount > GuestLogDuplicateBurstLimit)
+                    {
+                        _guestLogWindowSuppressedCount++;
+                        return true;
+                    }
+                }
+                else
+                {
+                    _lastGuestLogFingerprint = fingerprint;
+                    _lastGuestLogDuplicateCount = 1;
+                }
+
+                if (_guestLogWindowPrintedCount >= GuestLogPerSecondLimit)
+                {
+                    _guestLogWindowSuppressedCount++;
+                    return true;
+                }
+
+                _guestLogWindowPrintedCount++;
+                return false;
+            }
         }
     }
 }
