@@ -177,6 +177,13 @@ class LaunchGameHandler: ObservableObject {
                     LogCapture.shared.logDiagnostic("Eastward compatibility: normalized --disable-shader-cache into config.enableShaderCache=false")
                 }
 
+                if !config.additionalArgs.contains(where: {
+                    $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--force-dummy-audio"
+                }) {
+                    config.additionalArgs.append("--force-dummy-audio")
+                    LogCapture.shared.logDiagnostic("Eastward compatibility: forcing dummy audio backend for iOS stability test (no sound output)")
+                }
+
                 if eastwardSceneForensicsMode {
                     config.additionalArgs.removeAll {
                         $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--disable-guest-logs"

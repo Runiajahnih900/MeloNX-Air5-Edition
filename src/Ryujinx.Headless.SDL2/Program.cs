@@ -1,6 +1,7 @@
 using CommandLine;
 using LibHac.Tools.FsSystem;
 using Ryujinx.Audio.Backends.SDL2;
+using Ryujinx.Audio.Backends.Dummy;
 using Ryujinx.Audio.Backends.Apple;
 using Ryujinx.Common.Configuration;
 using Ryujinx.Common.Configuration.Hid;
@@ -1866,13 +1867,22 @@ namespace Ryujinx.Headless.SDL2
             // idk :3
             HLE.HOS.Services.Nifm.StaticService.AnyInternetRequestAccepted.isAnyInternetRequestAccepted = options.EnableInternetAccess;
 
+            var audioDriver = options.ForceDummyAudio
+                ? new DummyHardwareDeviceDriver()
+                : new SDL2HardwareDeviceDriver();
+
+            if (options.ForceDummyAudio)
+            {
+                Logger.Info?.Print(LogClass.Application, "Audio compatibility mode active: forcing Dummy audio backend (no sound output).");
+            }
+
             HLEConfiguration configuration = new(_virtualFileSystem,
                 _libHacHorizonManager,
                 _contentManager,
                 _accountManager,
                 _userChannelPersistence,
                 renderer,
-                new SDL2HardwareDeviceDriver(), // AppleHardwareDeviceDriver(), // Will rework Apple Audio later.
+                audioDriver, // AppleHardwareDeviceDriver(), // Will rework Apple Audio later.
                 options.ExpandRAM ? MemoryConfiguration.MemoryConfiguration8GiB : MemoryConfiguration.MemoryConfiguration4GiB,
                 window,
                 options.SystemLanguage,

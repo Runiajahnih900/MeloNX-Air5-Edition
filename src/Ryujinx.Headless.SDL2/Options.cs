@@ -213,6 +213,9 @@ namespace Ryujinx.Headless.SDL2
         [Option("audio-volume", Required = false, Default = 1.0f, HelpText = "The audio level (0 to 1).")]
         public float AudioVolume { get; set; }
 
+        [Option("force-dummy-audio", Required = false, Default = false, HelpText = "Forces the dummy audio backend (no sound output).")]
+        public bool ForceDummyAudio { get; set; }
+
 		[Option("use-hypervisor", Required = false, Default = false, HelpText = "Uses Hypervisor over JIT if available.")]
         public bool UseHypervisor { get; set; }
 
