@@ -86,21 +86,41 @@ class LaunchGameHandler: ObservableObject {
     }
     
     func startGame() {
+        LogCapture.shared.logDiagnostic("Launch stage: startGame invoked")
+
         enableJIT()
+        LogCapture.shared.logDiagnostic("Launch stage: enableJIT completed (jitEnabled=\(ryujinx.jitenabled), hasTXM=\(ProcessInfo.processInfo.hasTXM))")
+
         MusicSelectorView.stopMusic()
         nativeSettings.isVirtualController.value = controllerManager.hasVirtualController()
         MetalView.createView()
         
-        guard let currentGame else { return }
+        guard let currentGame else {
+            LogCapture.shared.logDiagnostic("Launch aborted: currentGame is nil")
+            return
+        }
+
+        LogCapture.shared.logDiagnostic("Launch stage: preparing session for titleId=\(currentGame.titleId)")
 
         LogCapture.shared.startGameSessionLog(gameTitle: currentGame.titleName, titleId: currentGame.titleId)
+        LogCapture.shared.logDiagnostic("Launch stage: session log started")
         
         persettings.loadSettings()
+        LogCapture.shared.logDiagnostic("Launch stage: per-game settings loaded")
         
         var config = persettings.config[currentGame.titleId] ?? self.config
 
+        let crashForensicsMode = nativeSettings.setting(forKey: "crashForensicsMode", default: true).value
+        let eastwardSceneForensicsMode = nativeSettings.setting(forKey: "eastwardSceneForensicsMode", default: false).value
         let allowUnsafeVerboseLogs = nativeSettings.setting(forKey: "allowUnsafeVerboseLogs", default: false).value
-        if !ProcessInfo.processInfo.isiOSAppOnMac && !allowUnsafeVerboseLogs {
+
+        if eastwardSceneForensicsMode {
+            config.debuglogs = true
+            config.tracelogs = false
+            LogCapture.shared.logDiagnostic("Eastward scene forensics mode enabled: forcing debugLogs=true and traceLogs=false")
+        }
+
+        if !ProcessInfo.processInfo.isiOSAppOnMac && !allowUnsafeVerboseLogs && !eastwardSceneForensicsMode {
             if config.tracelogs || config.debuglogs {
                 print("[MeloNX] Verbose logs (trace/debug) disabled on iOS for stability. Set 'allowUnsafeVerboseLogs' to true to override.")
             }
@@ -142,12 +162,17 @@ class LaunchGameHandler: ObservableObject {
                     config.enableDockedMode = true
                 }
 
-                if !config.additionalArgs.contains("--disable-guest-logs") {
-                    config.additionalArgs.append("--disable-guest-logs")
-                }
+                if crashForensicsMode || eastwardSceneForensicsMode {
+                    config.additionalArgs.removeAll { $0 == "--disable-guest-logs" || $0 == "--disable-stub-logs" }
+                    LogCapture.shared.logDiagnostic("Eastward forensics active: guest/stub logs left enabled for scene diagnostics")
+                } else {
+                    if !config.additionalArgs.contains("--disable-guest-logs") {
+                        config.additionalArgs.append("--disable-guest-logs")
+                    }
 
-                if !config.additionalArgs.contains("--disable-stub-logs") {
-                    config.additionalArgs.append("--disable-stub-logs")
+                    if !config.additionalArgs.contains("--disable-stub-logs") {
+                        config.additionalArgs.append("--disable-stub-logs")
+                    }
                 }
             }
         }
@@ -165,9 +190,11 @@ class LaunchGameHandler: ObservableObject {
         }
 
         LogCapture.shared.logDiagnostic("Config summary: memoryMode=\(config.memoryManagerMode), disablePTC=\(config.disablePTC), expandRam=\(config.expandRam), hypervisor=\(config.hypervisor), debugLogs=\(config.debuglogs), traceLogs=\(config.tracelogs), macroHLE=\(config.macroHLE), docked=\(config.enableDockedMode), ignoreMissingServices=\(config.ignoreMissingServices), controllerCount=\(config.inputids.count)")
+        LogCapture.shared.logDiagnostic("Config additionalArgs=\(config.additionalArgs.joined(separator: " "))")
         
         print(config.inputids)
         configureEnvironmentVariables(for: config)
+        LogCapture.shared.logDiagnostic("Launch stage: environment configured, starting Ryujinx core")
         
         do {
             try ryujinx.start(with: config)
@@ -185,10 +212,12 @@ class LaunchGameHandler: ObservableObject {
             useDualMappedJIT = nativeSettings.setting(forKey: "DUAL_MAPPED_JIT", default: false).value
         }
 
-          if !ProcessInfo.processInfo.isiOSAppOnMac,
-              currentGame?.titleId.lowercased() == "010071b00f63a000" {
+                if !ProcessInfo.processInfo.isiOSAppOnMac,
+                     currentGame?.titleId.lowercased() == "010071b00f63a000" {
             useDualMappedJIT = true
         }
+
+                LogCapture.shared.logDiagnostic("Env setup: requested DualMappedJIT=\(useDualMappedJIT)")
         
         if useDualMappedJIT {
             setenv("DUAL_MAPPED_JIT", "1", 1)
@@ -202,13 +231,17 @@ class LaunchGameHandler: ObservableObject {
             setenv("DUAL_MAPPED_JIT", "0", 1)
             Self.succeededJIT = true
         }
+
+        LogCapture.shared.logDiagnostic("Env setup: dualMappedJitInitSuccess=\(Self.succeededJIT)")
         
         guard let device = MTLCreateSystemDefaultDevice() else {
             setenv("MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS", "1", 1)
+            LogCapture.shared.logDiagnostic("Env setup: MTLCreateSystemDefaultDevice unavailable, forcing argument buffers=1")
             return
         }
         
         let supportsArgumentBuffersTier2 = device.argumentBuffersSupport.rawValue >= MTLArgumentBuffersTier.tier2.rawValue
         setenv("MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS", supportsArgumentBuffersTier2 ? "1" : "0", 1)
+        LogCapture.shared.logDiagnostic("Env setup: device=\(device.name), argumentBuffersTier2=\(supportsArgumentBuffersTier2)")
     }
 }

@@ -144,6 +144,7 @@ class Ryujinx : ObservableObject {
                 let args = self.buildCommandLineArgs(from: config)
                 LogCapture.shared.logDiagnostic("Launch argv count=\(args.count)")
                 LogCapture.shared.logDiagnostic("Launch argv=\(args.joined(separator: " "))")
+                LogCapture.shared.logDiagnostic("Launch options summary=\(self.summarizeArgOptions(args))")
                 let accessing = url?.startAccessingSecurityScopedResource()
                 
                 // Start the emulation
@@ -392,6 +393,29 @@ class Ryujinx : ObservableObject {
         }
         
         return games
+    }
+
+    private func summarizeArgOptions(_ args: [String]) -> String {
+        var optionCounts: [String: Int] = [:]
+
+        for token in args where token.hasPrefix("--") {
+            optionCounts[token, default: 0] += 1
+        }
+
+        if optionCounts.isEmpty {
+            return "none"
+        }
+
+        let duplicates = optionCounts
+            .filter { $0.value > 1 }
+            .sorted { $0.key < $1.key }
+            .map { "\($0.key)x\($0.value)" }
+
+        if duplicates.isEmpty {
+            return "uniqueOptions=\(optionCounts.count), duplicates=none"
+        }
+
+        return "uniqueOptions=\(optionCounts.count), duplicates=\(duplicates.joined(separator: ","))"
     }
     
     

@@ -51,7 +51,7 @@ class Setting<T: Any>: Hashable {
     }
     
     var name: String
-    var uddefault: Any
+    var uddefault: T?
     weak var parent: NativeSettingsManager?
     
     func hash(into hasher: inout Hasher) {
@@ -59,7 +59,7 @@ class Setting<T: Any>: Hashable {
             hasher.combine(ObjectIdentifier(parent))
         }
         hasher.combine(name)
-        hasher.combine(ObjectIdentifier(Mirror(reflecting: uddefault).subjectType))
+        hasher.combine(ObjectIdentifier(T.self))
     }
     
     var projectedValue: Binding<T> {
@@ -68,7 +68,7 @@ class Setting<T: Any>: Hashable {
     
     init(name: String, defaultAny: T?, parent: NativeSettingsManager? = nil) {
         self.name = name
-        self.uddefault = defaultAny ?? UUID()
+        self.uddefault = defaultAny
         self.parent = parent
         
         if UserDefaults.standard.object(forKey: name) == nil {
@@ -98,8 +98,51 @@ class Setting<T: Any>: Hashable {
     }
     
     var value: T {
-        get { getValue() ?? (uddefault as! T) }
+        get {
+            if let stored = getValue() {
+                return stored
+            }
+
+            if let defaultValue = uddefault {
+                return defaultValue
+            }
+
+            if let synthesized = synthesizedFallbackValue() {
+                print("[MeloNX][Settings] Missing default for key '\(name)' with type \(String(describing: T.self)). Using synthesized fallback value.")
+                return synthesized
+            }
+
+            fatalError("[MeloNX][Settings] Missing default for key '\(name)' with type \(String(describing: T.self)). Provide an explicit default when creating this setting.")
+        }
         set { self.set(newValue) }
+    }
+
+    private func synthesizedFallbackValue() -> T? {
+        if T.self == Bool.self {
+            return false as? T
+        }
+
+        if T.self == Int.self {
+            return 0 as? T
+        }
+
+        if T.self == Double.self {
+            return 0.0 as? T
+        }
+
+        if T.self == Float.self {
+            return 0.0 as? T
+        }
+
+        if T.self == String.self {
+            return "" as? T
+        }
+
+        if T.self == Any.Type.self {
+            return Any.self as? T
+        }
+
+        return nil
     }
     
     private func getValue() -> T? {

@@ -86,7 +86,8 @@ namespace Ryujinx.HLE.Loaders.Processes.Extensions
             bool enablePtc = device.System.EnablePtc && !modLoadResult.Modified;
             if (!enablePtc)
             {
-                Logger.Warning?.Print(LogClass.Ptc, "Detected unsupported ExeFs modifications. PTC disabled.");
+                string exefsSummary = GetExeFsModificationSummary(modLoadResult);
+                Logger.Warning?.Print(LogClass.Ptc, $"Detected unsupported ExeFs modifications. PTC disabled. ProgramId={programId:x16}. {exefsSummary}");
             }
 
             string programName = "";
@@ -127,6 +128,23 @@ namespace Ryujinx.HLE.Loaders.Processes.Extensions
             device.System.LibHacHorizonManager.ArpIReader.ApplicationId = new LibHac.ApplicationId(metaLoader.GetProgramId());
 
             return processResult;
+        }
+
+        private static string GetExeFsModificationSummary(ModLoadResult modLoadResult)
+        {
+            string[] replaced = ProcessConst.ExeFsPrefixes
+                .Where((_, index) => modLoadResult.Replaces[1 << index])
+                .ToArray();
+
+            string[] stubbed = ProcessConst.ExeFsPrefixes
+                .Where((_, index) => modLoadResult.Stubs[1 << index])
+                .ToArray();
+
+            string replacedSummary = replaced.Length == 0 ? "none" : string.Join(",", replaced);
+            string stubbedSummary = stubbed.Length == 0 ? "none" : string.Join(",", stubbed);
+            string hashSummary = string.IsNullOrEmpty(modLoadResult.Hash) ? "none" : modLoadResult.Hash;
+
+            return $"ExeFsReplaced={replacedSummary}; ExeFsStubbed={stubbedSummary}; ExeFsHash={hashSummary}";
         }
     }
 }
