@@ -305,7 +305,15 @@ class LaunchGameHandler: ObservableObject {
         }
         
         let supportsArgumentBuffersTier2 = device.argumentBuffersSupport.rawValue >= MTLArgumentBuffersTier.tier2.rawValue
-        setenv("MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS", supportsArgumentBuffersTier2 ? "1" : "0", 1)
-        LogCapture.shared.logDiagnostic("Env setup: device=\(device.name), argumentBuffersTier2=\(supportsArgumentBuffersTier2)")
+        var useMetalArgumentBuffers = supportsArgumentBuffersTier2
+
+        if !ProcessInfo.processInfo.isiOSAppOnMac,
+           currentGame?.titleId.lowercased() == "010071b00f63a000" {
+            useMetalArgumentBuffers = false
+            LogCapture.shared.logDiagnostic("Eastward compatibility: forcing MVK argument buffers OFF for Vulkan stability isolation")
+        }
+
+        setenv("MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS", useMetalArgumentBuffers ? "1" : "0", 1)
+        LogCapture.shared.logDiagnostic("Env setup: device=\(device.name), argumentBuffersTier2=\(supportsArgumentBuffersTier2), usingArgumentBuffers=\(useMetalArgumentBuffers)")
     }
 }
