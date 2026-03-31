@@ -275,9 +275,10 @@ class LaunchGameHandler: ObservableObject {
             useDualMappedJIT = nativeSettings.setting(forKey: "DUAL_MAPPED_JIT", default: false).value
         }
 
-                if !ProcessInfo.processInfo.isiOSAppOnMac,
-                     currentGame?.titleId.lowercased() == "010071b00f63a000" {
-            useDualMappedJIT = true
+        if !ProcessInfo.processInfo.isiOSAppOnMac,
+           currentGame?.titleId.lowercased() == "010071b00f63a000" {
+            useDualMappedJIT = false
+            LogCapture.shared.logDiagnostic("Eastward compatibility: forcing non-dualmapped JIT for stability isolation")
         }
 
                 LogCapture.shared.logDiagnostic("Env setup: requested DualMappedJIT=\(useDualMappedJIT)")
