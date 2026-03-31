@@ -33,6 +33,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
         /// FIXME: This seems enough for most of the cases, reduce if needed.
         /// </summary>
         private const uint FailingCountMax = 2;
+        private static readonly TimeSpan IosCpuWaitTimeout = TimeSpan.FromMilliseconds(250);
 
         public NvHostEvent(NvHostSyncpt syncpointManager, uint eventId, Horizon system)
         {
@@ -138,7 +139,28 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
                 //       This allows to keep GPU and CPU in sync when we are slow.
                 if (_failingCount == FailingCountMax)
                 {
-                    Logger.Warning?.Print(LogClass.ServiceNv, "GPU processing thread is too slow, waiting on CPU...");
+                    uint currentSyncpointValue = gpuContext.Synchronization.GetSyncpointValue(Fence.Id);
+                    Logger.Warning?.Print(
+                        LogClass.ServiceNv,
+                        $"GPU processing thread is too slow, waiting on CPU... syncpt={Fence.Id}, target={Fence.Value}, current={currentSyncpointValue}, failingCount={_failingCount}");
+
+                    if (OperatingSystem.IsIOS())
+                    {
+                        bool signaled = Fence.Wait(gpuContext, IosCpuWaitTimeout);
+                        uint updatedSyncpointValue = gpuContext.Synchronization.GetSyncpointValue(Fence.Id);
+
+                        if (!signaled)
+                        {
+                            Logger.Warning?.Print(
+                                LogClass.ServiceNv,
+                                $"iOS bounded CPU wait timed out after {IosCpuWaitTimeout.TotalMilliseconds}ms, continuing with TryAgain. syncpt={Fence.Id}, target={Fence.Value}, current={updatedSyncpointValue}");
+                        }
+
+                        ResetFailingState();
+
+                        // true => TryAgain (not signaled yet), false => Success (fence reached)
+                        return !signaled;
+                    }
 
                     Fence.Wait(gpuContext, Timeout.InfiniteTimeSpan);
 
