@@ -1,6 +1,6 @@
 # Eastward iOS Mitigation Tracker
 
-Last update: 2026-03-31 (after latest log 11:08)
+Last update: 2026-03-31 (after latest log 11:08, NV wait patch v2)
 Title ID: 010071b00f63a000
 
 ## Tujuan
@@ -33,7 +33,7 @@ Mencatat semua mitigasi yang sudah/pernah dicoba di source workspace ini agar ti
   - Hasil: masih stuck/background dengan pola sama.
 
 ## Mitigasi Aktif di Source (Belum Ada Bukti Log Final)
-- [ACTIVE-PENDING] iOS bounded CPU wait pada `ServiceNv Wait` (gantikan wait tak terbatas di `NvHostEvent`).
+- [ACTIVE-PENDING] iOS bounded CPU wait pada `ServiceNv Wait` (gantikan wait tak terbatas di `NvHostEvent`) + marker log unik `MELONX_IOS_NV_WAIT_V2`.
   - Alasan: pola stuck selalu berakhir di `GPU processing thread is too slow, waiting on CPU...`; wait tak terbatas kemungkinan memicu app unresponsive lalu background.
 
 ## Gejala Konsisten di Log
@@ -50,6 +50,6 @@ Dengan audio dummy + threading off + shader cache off + non-dualmapped JIT + arg
 ## Langkah Berikutnya
 1. Build dengan patch iOS bounded CPU wait di `NvHostEvent` yang sudah ada di source.
 2. Verifikasi marker log:
-  - `GPU processing thread is too slow, waiting on CPU... syncpt=..., target=..., current=..., failingCount=...`
-  - `iOS bounded CPU wait timed out after 250ms, continuing with TryAgain...`
+  - `MELONX_IOS_NV_WAIT_V2: GPU processing thread is too slow, waiting on CPU... syncpt=..., target=..., current=..., failingCount=..., isIos=true`
+  - `MELONX_IOS_NV_WAIT_V2: bounded CPU wait timed out after 16ms, continuing with TryAgain...`
 3. Jika masih muncul pola `ServiceNv Wait` + background, tandai issue sebagai engine-level regression/pathology untuk Eastward di iOS.

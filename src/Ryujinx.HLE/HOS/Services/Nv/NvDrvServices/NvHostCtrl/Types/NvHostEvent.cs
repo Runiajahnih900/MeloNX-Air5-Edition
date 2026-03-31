@@ -33,7 +33,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
         /// FIXME: This seems enough for most of the cases, reduce if needed.
         /// </summary>
         private const uint FailingCountMax = 2;
-        private static readonly TimeSpan IosCpuWaitTimeout = TimeSpan.FromMilliseconds(250);
+        private static readonly TimeSpan IosCpuWaitTimeout = TimeSpan.FromMilliseconds(16);
 
         public NvHostEvent(NvHostSyncpt syncpointManager, uint eventId, Horizon system)
         {
@@ -139,12 +139,13 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
                 //       This allows to keep GPU and CPU in sync when we are slow.
                 if (_failingCount == FailingCountMax)
                 {
+                    bool isIos = OperatingSystem.IsIOS();
                     uint currentSyncpointValue = gpuContext.Synchronization.GetSyncpointValue(Fence.Id);
                     Logger.Warning?.Print(
                         LogClass.ServiceNv,
-                        $"GPU processing thread is too slow, waiting on CPU... syncpt={Fence.Id}, target={Fence.Value}, current={currentSyncpointValue}, failingCount={_failingCount}");
+                        $"MELONX_IOS_NV_WAIT_V2: GPU processing thread is too slow, waiting on CPU... syncpt={Fence.Id}, target={Fence.Value}, current={currentSyncpointValue}, failingCount={_failingCount}, isIos={isIos}");
 
-                    if (OperatingSystem.IsIOS())
+                    if (isIos)
                     {
                         bool signaled = Fence.Wait(gpuContext, IosCpuWaitTimeout);
                         uint updatedSyncpointValue = gpuContext.Synchronization.GetSyncpointValue(Fence.Id);
@@ -153,7 +154,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
                         {
                             Logger.Warning?.Print(
                                 LogClass.ServiceNv,
-                                $"iOS bounded CPU wait timed out after {IosCpuWaitTimeout.TotalMilliseconds}ms, continuing with TryAgain. syncpt={Fence.Id}, target={Fence.Value}, current={updatedSyncpointValue}");
+                                $"MELONX_IOS_NV_WAIT_V2: bounded CPU wait timed out after {IosCpuWaitTimeout.TotalMilliseconds}ms, continuing with TryAgain. syncpt={Fence.Id}, target={Fence.Value}, current={updatedSyncpointValue}");
                         }
 
                         ResetFailingState();
