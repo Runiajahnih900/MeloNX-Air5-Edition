@@ -203,6 +203,19 @@ class LaunchGameHandler: ObservableObject {
                 config.additionalArgs.append(contentsOf: ["--backend-threading", "Off"])
                 LogCapture.shared.logDiagnostic("Eastward compatibility: forcing --backend-threading Off to avoid iOS render-thread stalls")
 
+                if let graphicsBackendIndex = config.additionalArgs.firstIndex(where: {
+                    $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--graphics-backend"
+                }) {
+                    if graphicsBackendIndex + 1 < config.additionalArgs.count {
+                        config.additionalArgs.remove(at: graphicsBackendIndex + 1)
+                    }
+
+                    config.additionalArgs.remove(at: graphicsBackendIndex)
+                }
+
+                config.additionalArgs.append(contentsOf: ["--graphics-backend", "OpenGl"])
+                LogCapture.shared.logDiagnostic("Eastward compatibility: forcing OpenGL backend for final Vulkan-path isolation")
+
                 if eastwardSceneForensicsMode {
                     config.additionalArgs.removeAll {
                         $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--disable-guest-logs"

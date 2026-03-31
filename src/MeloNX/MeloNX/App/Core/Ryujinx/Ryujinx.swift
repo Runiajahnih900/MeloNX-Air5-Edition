@@ -481,13 +481,20 @@ class Ryujinx : ObservableObject {
     
     func buildCommandLineArgs(from config: Arguments) -> [String] {
         var args: [String] = []
+
+        let normalizedAdditionalArgs = config.additionalArgs.map {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        }
+        let hasGraphicsBackendOverride = normalizedAdditionalArgs.contains("--graphics-backend")
         
         // Add the game path
         args.append(config.gamepath)
         
-        // Starts with vulkan
-        args.append("--graphics-backend")
-        args.append("Vulkan")
+        // Default to Vulkan unless backend is explicitly overridden in additional args.
+        if !hasGraphicsBackendOverride {
+            args.append("--graphics-backend")
+            args.append("Vulkan")
+        }
         
         args.append(contentsOf: ["--memory-manager-mode", config.memoryManagerMode])
         
