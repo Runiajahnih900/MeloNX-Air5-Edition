@@ -160,9 +160,16 @@ class LaunchGameHandler: ObservableObject {
                     config.macroHLE = true
                 }
 
-                if !config.enableDockedMode {
-                    print("[MeloNX] Eastward compatibility profile: enabling Docked Mode")
-                    config.enableDockedMode = true
+                if config.enableDockedMode {
+                    print("[MeloNX] Eastward compatibility profile: disabling Docked Mode (handheld) to reduce GPU load")
+                    config.enableDockedMode = false
+                    LogCapture.shared.logDiagnostic("Eastward compatibility: forcing handheld mode to reduce GPU load")
+                }
+
+                if config.resscale != 0.5 {
+                    print("[MeloNX] Eastward compatibility profile: lowering resolution scale to 0.5")
+                    config.resscale = 0.5
+                    LogCapture.shared.logDiagnostic("Eastward compatibility: forcing resolution scale 0.5 for GPU-load isolation")
                 }
 
                 if config.enableShaderCache {
@@ -203,7 +210,7 @@ class LaunchGameHandler: ObservableObject {
                 config.additionalArgs.append(contentsOf: ["--backend-threading", "Off"])
                 LogCapture.shared.logDiagnostic("Eastward compatibility: forcing --backend-threading Off to avoid iOS render-thread stalls")
 
-                if let graphicsBackendIndex = config.additionalArgs.firstIndex(where: {
+                while let graphicsBackendIndex = config.additionalArgs.firstIndex(where: {
                     $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--graphics-backend"
                 }) {
                     if graphicsBackendIndex + 1 < config.additionalArgs.count {
@@ -212,9 +219,7 @@ class LaunchGameHandler: ObservableObject {
 
                     config.additionalArgs.remove(at: graphicsBackendIndex)
                 }
-
-                config.additionalArgs.append(contentsOf: ["--graphics-backend", "OpenGl"])
-                LogCapture.shared.logDiagnostic("Eastward compatibility: forcing OpenGL backend for final Vulkan-path isolation")
+                LogCapture.shared.logDiagnostic("Eastward compatibility: removed manual graphics-backend override (OpenGL is unsupported on iOS and falls back to Vulkan)")
 
                 if eastwardSceneForensicsMode {
                     config.additionalArgs.removeAll {

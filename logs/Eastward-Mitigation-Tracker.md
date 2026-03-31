@@ -1,6 +1,6 @@
 # Eastward iOS Mitigation Tracker
 
-Last update: 2026-03-31 (after latest log 07:22)
+Last update: 2026-03-31 (after latest log 07:36)
 Title ID: 010071b00f63a000
 
 ## Tujuan
@@ -27,10 +27,12 @@ Mencatat semua mitigasi yang sudah/pernah dicoba di source workspace ini agar ti
   - Hasil: masih stuck/background.
 - [DONE] Force MoltenVK Metal Argument Buffers OFF (`MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=0`).
   - Hasil: masih stuck/background.
+- [DONE] Force OpenGL backend (`--graphics-backend OpenGl`) untuk isolasi Vulkan.
+  - Hasil: tidak valid di iOS, otomatis fallback ke Vulkan (`OpenGL is not supported on Apple platforms, switching to Vulkan!`).
 
 ## Mitigasi Aktif di Source (Belum Ada Bukti Log Final)
-- [ACTIVE-PENDING] Force OpenGL backend khusus Eastward (`--graphics-backend OpenGl`) untuk isolasi final jalur Vulkan.
-  - Alasan: semua mitigasi Vulkan tetap reproduksi dengan pola `ServiceNv Wait`.
+- [ACTIVE-PENDING] Force low GPU load profile khusus Eastward (handheld mode + `resolution-scale 0.5`).
+  - Alasan: semua mitigasi sebelumnya tetap reproduksi; jalur terakhir yang belum diisolasi adalah beban render total.
 
 ## Gejala Konsisten di Log
 - Freeze lalu muncul warning:
@@ -41,11 +43,12 @@ Mencatat semua mitigasi yang sudah/pernah dicoba di source workspace ini agar ti
   - kadang diikuti `Audio session interruption began` (kemungkinan efek lanjutan, bukan akar awal).
 
 ## Kesimpulan Sementara
-Dengan audio dummy + threading off + shader cache off + non-dualmapped JIT + argument buffers OFF tetap reproduksi, dugaan sangat kuat mengarah ke jalur engine/runtime GPU Vulkan Eastward pada iOS 16.1, bukan sekadar setting game biasa.
+Dengan audio dummy + threading off + shader cache off + non-dualmapped JIT + argument buffers OFF tetap reproduksi, dugaan sangat kuat mengarah ke jalur engine/runtime GPU Vulkan Eastward pada iOS 16.1, bukan sekadar setting game biasa. Uji OpenGL juga tidak bisa dijadikan pembanding karena iOS otomatis fallback ke Vulkan.
 
 ## Langkah Berikutnya
-1. Build dengan patch force OpenGL backend untuk Eastward yang sudah ada di source.
+1. Build dengan patch low GPU load (handheld + resolution scale 0.5) yang sudah ada di source.
 2. Verifikasi marker log:
-  - `Eastward compatibility: forcing OpenGL backend for final Vulkan-path isolation`
-  - `Launch argv ... --graphics-backend OpenGl ...`
+  - `Eastward compatibility: forcing handheld mode to reduce GPU load`
+  - `Eastward compatibility: forcing resolution scale 0.5 for GPU-load isolation`
+  - `Launch argv ... --resolution-scale 0.5 ... --disable-docked-mode ...`
 3. Jika masih muncul pola `ServiceNv Wait` + background, tandai issue sebagai engine-level regression/pathology untuk Eastward di iOS.
