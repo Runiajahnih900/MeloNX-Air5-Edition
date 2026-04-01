@@ -79,7 +79,7 @@ namespace Ryujinx.UI.Windows
 
             var mods = new ModLoader.ModCache();
 
-            ModLoader.QueryContentsDir(mods, new DirectoryInfo(System.IO.Path.Combine(modsBasePath, "contents")), titleId);
+            ModLoader.QueryContentsDir(mods, new DirectoryInfo(System.IO.Path.Combine(modsBasePath, "contents")), titleId, Array.Empty<ulong>());
 
             string currentCheatFile = string.Empty;
             string buildId = string.Empty;

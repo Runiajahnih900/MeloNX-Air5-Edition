@@ -25,9 +25,22 @@ namespace Ryujinx.Audio.Backends.SDL2
         // TODO: Add this to SDL2-CS
         // NOTE: We use a DllImport here because of marshaling issue for spec.
 #pragma warning disable SYSLIB1054
-        [DllImport("SDL2.framework/SDL2")]
-        private static extern int SDL_GetDefaultAudioInfo(IntPtr name, out SDL_AudioSpec spec, int isCapture);
+        [DllImport("SDL2.framework/SDL2", EntryPoint = "SDL_GetDefaultAudioInfo")]
+        private static extern int SDL_GetDefaultAudioInfoApple(IntPtr name, out SDL_AudioSpec spec, int isCapture);
+
+        [DllImport("SDL2", EntryPoint = "SDL_GetDefaultAudioInfo")]
+        private static extern int SDL_GetDefaultAudioInfoDesktop(IntPtr name, out SDL_AudioSpec spec, int isCapture);
 #pragma warning restore SYSLIB1054
+
+        private static int SDL_GetDefaultAudioInfoCompat(IntPtr name, out SDL_AudioSpec spec, int isCapture)
+        {
+            if (OperatingSystem.IsIOS() || OperatingSystem.IsTvOS() || OperatingSystem.IsMacCatalyst())
+            {
+                return SDL_GetDefaultAudioInfoApple(name, out spec, isCapture);
+            }
+
+            return SDL_GetDefaultAudioInfoDesktop(name, out spec, isCapture);
+        }
 
         public SDL2HardwareDeviceDriver()
         {
@@ -37,18 +50,37 @@ namespace Ryujinx.Audio.Backends.SDL2
 
             SDL2Driver.Instance.Initialize();
 
-            int res = SDL_GetDefaultAudioInfo(IntPtr.Zero, out var spec, 0);
+            int res;
 
-            if (res != 0)
+            try
             {
-                Logger.Error?.Print(LogClass.Application,
-                    $"SDL_GetDefaultAudioInfo failed with error \"{SDL_GetError()}\"");
+                res = SDL_GetDefaultAudioInfoCompat(IntPtr.Zero, out var spec, 0);
+
+                if (res != 0)
+                {
+                    Logger.Error?.Print(LogClass.Application,
+                        $"SDL_GetDefaultAudioInfo failed with error \"{SDL_GetError()}\"");
+
+                    _supportSurroundConfiguration = true;
+                }
+                else
+                {
+                    _supportSurroundConfiguration = spec.channels >= 6;
+                }
+            }
+            catch (DllNotFoundException ex)
+            {
+                Logger.Warning?.Print(LogClass.Application,
+                    $"SDL_GetDefaultAudioInfo unavailable from native SDL2 library: {ex.Message}");
 
                 _supportSurroundConfiguration = true;
             }
-            else
+            catch (EntryPointNotFoundException ex)
             {
-                _supportSurroundConfiguration = spec.channels >= 6;
+                Logger.Warning?.Print(LogClass.Application,
+                    $"SDL_GetDefaultAudioInfo symbol not found in native SDL2 library: {ex.Message}");
+
+                _supportSurroundConfiguration = true;
             }
 
             Volume = 1f;

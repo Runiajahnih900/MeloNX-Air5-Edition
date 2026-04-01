@@ -156,7 +156,14 @@ namespace Ryujinx.UI
 
             SetWindowSizePosition();
 
-            Icon = new Gdk.Pixbuf(Assembly.GetAssembly(typeof(ConfigurationState)), "Ryujinx.UI.Common.Resources.Logo_Ryujinx.png");
+            try
+            {
+                Icon = new Gdk.Pixbuf(Assembly.GetAssembly(typeof(ConfigurationState)), "Ryujinx.UI.Common.Resources.Logo_Ryujinx.png");
+            }
+            catch (ArgumentException)
+            {
+                Logger.Warning?.Print(LogClass.Application, "Main window icon resource not found, continuing without custom icon.");
+            }
             Title = $"Ryujinx {Program.Version}";
 
             // Hide emulation context status bar.

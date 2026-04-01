@@ -2,6 +2,17 @@ name: Build MeloNX iOS (TrollStore)
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - "**"
+    paths:
+      - "src/**"
+      - "distribution/ios/**"
+      - ".github/workflows/build_ios.yml"
+
+concurrency:
+  group: build-ios-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build_ios:

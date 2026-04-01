@@ -45,10 +45,21 @@ namespace Ryujinx.Memory
             Size = size;
             if (flags.HasFlag(MemoryAllocationFlags.DualMapping))
             {
-                _dualMappedAllocator = new DualMappedJitAllocator(size);
-                _pointer = _dualMappedAllocator.RwPtr;
-                _rxPointer = _dualMappedAllocator.RxPtr;
                 _forJit = true;
+
+                // Dual-mapped allocator is iOS/Apple-platform specific in this fork.
+                if (OperatingSystem.IsIOS() || OperatingSystem.IsTvOS() || OperatingSystem.IsMacCatalyst() || OperatingSystem.IsMacOS())
+                {
+                    _dualMappedAllocator = new DualMappedJitAllocator(size);
+                    _pointer = _dualMappedAllocator.RwPtr;
+                    _rxPointer = _dualMappedAllocator.RxPtr;
+                }
+                else
+                {
+                    _pointer = MemoryManagement.Allocate(size, _forJit);
+                    _rxPointer = _pointer;
+                }
+
                 return;
             }
             else if (flags.HasFlag(MemoryAllocationFlags.Mirrorable))

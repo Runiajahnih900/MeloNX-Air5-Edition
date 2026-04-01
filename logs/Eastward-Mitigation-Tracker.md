@@ -1,6 +1,6 @@
 # Eastward iOS Mitigation Tracker
 
-Last update: 2026-04-01 (after latest log 13:06, NV wait/EventWait v6 validated, Vulkan retry mitigation added)
+Last update: 2026-04-01 (after latest log 15:59, EventWait v6 confirmed, early lifecycle termination persists)
 Title ID: 010071b00f63a000
 
 ## Tujuan
@@ -65,6 +65,17 @@ Mencatat semua mitigasi yang sudah/pernah dicoba di source workspace ini agar ti
 - Pada log terbaru ini tidak terlihat lagi marker `MELONX_IOS_NV_WAIT_V5: GPU processing thread is too slow...`.
 - Artinya fallback v6 aktif dan menutup kasus small-delta wait paling awal.
 - Namun sesi masih berakhir dengan lifecycle background/terminate, jadi akar masalah kemungkinan bergeser ke jalur runtime GPU/pipeline scene tertentu (bukan semata wait-loop syncpoint kecil).
+
+## Hasil Log Terbaru (15:59)
+- Marker `MELONX_IOS_EVENTWAIT_V6` muncul lebih awal dan pada beberapa syncpoint:
+  - `syncpt=2, target=3, before=1, after=3, promotedBy=2`
+  - `syncpt=1, target=3, before=1, after=3, promotedBy=2`
+- Marker `MELONX_IOS_NV_WAIT_V5` tidak muncul pada sesi ini.
+- App tetap cepat masuk lifecycle:
+  - `App will resign active`
+  - `App entered background`
+  - `UIApplication.willTerminate received`
+- Interpretasi: jalur small-delta syncpoint wait sudah bukan blocker utama pada sesi ini; failure bergerak ke jalur runtime/lifecycle lain.
 
 ## Gejala Konsisten di Log
 - Freeze lalu muncul warning:
