@@ -1,6 +1,6 @@
 # Eastward iOS Mitigation Tracker
 
-Last update: 2026-04-01 (after latest log 07:16, NV wait patch v5)
+Last update: 2026-04-01 (after latest log 07:33, NV wait/EventWait patch v6)
 Title ID: 010071b00f63a000
 
 ## Tujuan
@@ -33,7 +33,7 @@ Mencatat semua mitigasi yang sudah/pernah dicoba di source workspace ini agar ti
   - Hasil: masih stuck/background dengan pola sama.
 
 ## Mitigasi Aktif di Source (Belum Ada Bukti Log Final)
-- [ACTIVE-PENDING] iOS NV wait patch v5: bounded CPU wait + skip wait delta kecil + loop-break + promosi syncpoint saat forced success agar state tidak tertinggal.
+- [ACTIVE-PENDING] iOS patch v6: pertahankan NV wait v5 + fallback promosi syncpoint di level `EventWait` (NvHostCtrlDeviceFile) untuk delta kecil agar jalur tidak bergantung hanya pada `NvHostEvent`.
   - Alasan: pola stuck selalu berakhir di `GPU processing thread is too slow, waiting on CPU...`; wait tak terbatas kemungkinan memicu app unresponsive lalu background.
 
 ## Hasil Log Terakhir (Sebelum V4)
@@ -45,6 +45,14 @@ Mencatat semua mitigasi yang sudah/pernah dicoba di source workspace ini agar ti
 - Marker `MELONX_IOS_NV_WAIT_V4` muncul penuh, termasuk `stallCount=2` dan `forcing Success to break TryAgain loop`.
 - Artinya loop-break saja belum cukup; setelah forced-success app tetap resign/background.
 - Indikasi kuat ada state syncpoint yang masih tertinggal walau result sudah dipaksa success.
+
+## Hasil Log Terakhir (Sebelum V6)
+- Marker `MELONX_IOS_NV_WAIT_V5` muncul lengkap, termasuk promosi syncpoint sukses:
+  - `previousCurrent=10286`
+  - `promotedCurrent=10288`
+  - `promotedBy=2`
+- Artinya gap syncpoint di level `NvHostEvent` memang tertutup, tetapi app tetap langsung resign/background sesudahnya.
+- Mitigasi v6 menambahkan fallback lebih awal di `EventWait` untuk kasus delta kecil yang sama.
 
 ## Gejala Konsisten di Log
 - Freeze lalu muncul warning:
@@ -60,6 +68,7 @@ Dengan audio dummy + threading off + shader cache off + non-dualmapped JIT + arg
 ## Langkah Berikutnya
 1. Build dengan patch iOS bounded CPU wait di `NvHostEvent` yang sudah ada di source.
 2. Verifikasi marker log:
+  - `MELONX_IOS_EVENTWAIT_V6: promoted syncpoint in EventWait fallback. ...`
   - `MELONX_IOS_NV_WAIT_V5: GPU processing thread is too slow, waiting on CPU... syncpt=..., target=..., current=..., remaining=..., failingCount=..., isIos=true`
   - `MELONX_IOS_NV_WAIT_V5: skipping CPU wait on iOS for small syncpoint delta ..., stallCount=..., returning TryAgain.`
   - `MELONX_IOS_NV_WAIT_V5: small-delta stall persisted for fence, forcing Success to break TryAgain loop...`

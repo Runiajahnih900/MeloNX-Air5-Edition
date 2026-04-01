@@ -13,6 +13,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
     internal class NvHostCtrlDeviceFile : NvDeviceFile
     {
         public const int EventsCount = 64;
+        private const uint IosEventWaitSmallDeltaThreshold = 2;
 
         private readonly bool _isProductionMode;
         private readonly Switch _device;
@@ -355,6 +356,32 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
             if (timeout == 0)
             {
                 return NvInternalResult.TryAgain;
+            }
+
+            if (OperatingSystem.IsIOS())
+            {
+                uint remainingSyncpointDelta = fence.Value > newCachedSyncpointValue ? fence.Value - newCachedSyncpointValue : 0;
+
+                if (remainingSyncpointDelta > 0 && remainingSyncpointDelta <= IosEventWaitSmallDeltaThreshold)
+                {
+                    for (uint i = 0; i < remainingSyncpointDelta; i++)
+                    {
+                        _device.System.HostSyncpoint.Increment(fence.Id);
+                    }
+
+                    uint promotedSyncpointValue = _device.System.HostSyncpoint.ReadSyncpointValue(fence.Id);
+
+                    Logger.Warning?.Print(
+                        LogClass.ServiceNv,
+                        $"MELONX_IOS_EVENTWAIT_V6: promoted syncpoint in EventWait fallback. syncpt={fence.Id}, target={fence.Value}, before={newCachedSyncpointValue}, after={promotedSyncpointValue}, promotedBy={remainingSyncpointDelta}");
+
+                    if (_device.System.HostSyncpoint.IsSyncpointExpired(fence.Id, fence.Value))
+                    {
+                        value = promotedSyncpointValue;
+
+                        return NvInternalResult.Success;
+                    }
+                }
             }
 
             // The syncpoint value isn't at the fence yet, we need to wait.
