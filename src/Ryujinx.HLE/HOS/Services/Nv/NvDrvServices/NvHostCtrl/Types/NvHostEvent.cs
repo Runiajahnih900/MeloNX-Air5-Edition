@@ -18,9 +18,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
         public int EventHandle;
 
         private readonly uint _eventId;
-#pragma warning disable IDE0052 // Remove unread private member
         private readonly NvHostSyncpt _syncpointManager;
-#pragma warning restore IDE0052
         private SyncpointWaiterHandle _waiterInformation;
 
         private NvFence _previousFailingFence;
@@ -74,6 +72,27 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
             _previousIosSmallDeltaFence.Value = 0;
             _previousIosSmallDeltaSyncpointValue = 0;
             _iosSmallDeltaStallCount = 0;
+        }
+
+        private void PromoteIosSyncpointOnForcedSuccess(GpuContext gpuContext, uint currentSyncpointValue)
+        {
+            uint remainingSyncpointDelta = Fence.Value > currentSyncpointValue ? Fence.Value - currentSyncpointValue : 0;
+
+            if (!OperatingSystem.IsIOS() || remainingSyncpointDelta == 0 || remainingSyncpointDelta > IosSkipCpuWaitDeltaThreshold)
+            {
+                return;
+            }
+
+            for (uint i = 0; i < remainingSyncpointDelta; i++)
+            {
+                _syncpointManager.Increment(Fence.Id);
+            }
+
+            uint promotedSyncpointValue = gpuContext.Synchronization.GetSyncpointValue(Fence.Id);
+
+            Logger.Warning?.Print(
+                LogClass.ServiceNv,
+                $"MELONX_IOS_NV_WAIT_V5: promoted syncpoint after forced success. syncpt={Fence.Id}, target={Fence.Value}, previousCurrent={currentSyncpointValue}, promotedCurrent={promotedSyncpointValue}, promotedBy={remainingSyncpointDelta}");
         }
 
         private void Signal()
@@ -159,7 +178,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
                     uint remainingSyncpointDelta = Fence.Value > currentSyncpointValue ? Fence.Value - currentSyncpointValue : 0;
                     Logger.Warning?.Print(
                         LogClass.ServiceNv,
-                        $"MELONX_IOS_NV_WAIT_V4: GPU processing thread is too slow, waiting on CPU... syncpt={Fence.Id}, target={Fence.Value}, current={currentSyncpointValue}, remaining={remainingSyncpointDelta}, failingCount={_failingCount}, isIos={isIos}");
+                        $"MELONX_IOS_NV_WAIT_V5: GPU processing thread is too slow, waiting on CPU... syncpt={Fence.Id}, target={Fence.Value}, current={currentSyncpointValue}, remaining={remainingSyncpointDelta}, failingCount={_failingCount}, isIos={isIos}");
 
                     if (isIos)
                     {
@@ -182,13 +201,15 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
 
                             Logger.Warning?.Print(
                                 LogClass.ServiceNv,
-                                $"MELONX_IOS_NV_WAIT_V4: skipping CPU wait on iOS for small syncpoint delta (remaining={remainingSyncpointDelta} <= {IosSkipCpuWaitDeltaThreshold}), stallCount={_iosSmallDeltaStallCount}, returning TryAgain.");
+                                $"MELONX_IOS_NV_WAIT_V5: skipping CPU wait on iOS for small syncpoint delta (remaining={remainingSyncpointDelta} <= {IosSkipCpuWaitDeltaThreshold}), stallCount={_iosSmallDeltaStallCount}, returning TryAgain.");
 
                             if (_iosSmallDeltaStallCount >= IosSmallDeltaForceSuccessThreshold)
                             {
                                 Logger.Warning?.Print(
                                     LogClass.ServiceNv,
-                                    $"MELONX_IOS_NV_WAIT_V4: small-delta stall persisted for fence, forcing Success to break TryAgain loop. syncpt={Fence.Id}, target={Fence.Value}, current={currentSyncpointValue}, stallCount={_iosSmallDeltaStallCount}");
+                                    $"MELONX_IOS_NV_WAIT_V5: small-delta stall persisted for fence, forcing Success to break TryAgain loop. syncpt={Fence.Id}, target={Fence.Value}, current={currentSyncpointValue}, stallCount={_iosSmallDeltaStallCount}");
+
+                                PromoteIosSyncpointOnForcedSuccess(gpuContext, currentSyncpointValue);
 
                                 ResetFailingState();
                                 ResetIosSmallDeltaStallState();
@@ -210,7 +231,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
                         {
                             Logger.Warning?.Print(
                                 LogClass.ServiceNv,
-                                $"MELONX_IOS_NV_WAIT_V4: bounded CPU wait timed out after {IosCpuWaitTimeout.TotalMilliseconds}ms, continuing with TryAgain. syncpt={Fence.Id}, target={Fence.Value}, current={updatedSyncpointValue}");
+                                $"MELONX_IOS_NV_WAIT_V5: bounded CPU wait timed out after {IosCpuWaitTimeout.TotalMilliseconds}ms, continuing with TryAgain. syncpt={Fence.Id}, target={Fence.Value}, current={updatedSyncpointValue}");
                         }
 
                         ResetFailingState();
