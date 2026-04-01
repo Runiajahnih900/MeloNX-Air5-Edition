@@ -172,10 +172,10 @@ class LaunchGameHandler: ObservableObject {
                     LogCapture.shared.logDiagnostic("Eastward compatibility: forcing resolution scale 0.5 for GPU-load isolation")
                 }
 
-                if config.enableShaderCache {
-                    print("[MeloNX] Eastward compatibility profile: disabling Shader Cache")
-                    config.enableShaderCache = false
-                    LogCapture.shared.logDiagnostic("Eastward compatibility: forcing config.enableShaderCache=false to reduce Vulkan cache-related stalls")
+                if !config.enableShaderCache {
+                    print("[MeloNX] Eastward compatibility profile: enabling Shader Cache for iOS post-fix profile")
+                    config.enableShaderCache = true
+                    LogCapture.shared.logDiagnostic("Eastward compatibility: forcing config.enableShaderCache=true for iOS post-fix profile")
                 }
 
                 let hadManualDisableShaderCacheArg = config.additionalArgs.contains {
@@ -183,18 +183,10 @@ class LaunchGameHandler: ObservableObject {
                 }
 
                 if hadManualDisableShaderCacheArg {
-                    config.enableShaderCache = false
                     config.additionalArgs.removeAll {
                         $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--disable-shader-cache"
                     }
-                    LogCapture.shared.logDiagnostic("Eastward compatibility: normalized --disable-shader-cache into config.enableShaderCache=false")
-                }
-
-                if !config.additionalArgs.contains(where: {
-                    $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--force-dummy-audio"
-                }) {
-                    config.additionalArgs.append("--force-dummy-audio")
-                    LogCapture.shared.logDiagnostic("Eastward compatibility: forcing dummy audio backend for iOS stability test (no sound output)")
+                    LogCapture.shared.logDiagnostic("Eastward compatibility: removed --disable-shader-cache for iOS post-fix profile")
                 }
 
                 if let backendThreadingIndex = config.additionalArgs.firstIndex(where: {
@@ -205,10 +197,21 @@ class LaunchGameHandler: ObservableObject {
                     }
 
                     config.additionalArgs.remove(at: backendThreadingIndex)
+
+                    LogCapture.shared.logDiagnostic("Eastward compatibility: removed manual --backend-threading override (using runtime default/Auto)")
                 }
 
-                config.additionalArgs.append(contentsOf: ["--backend-threading", "Off"])
-                LogCapture.shared.logDiagnostic("Eastward compatibility: forcing --backend-threading Off to avoid iOS render-thread stalls")
+                let hadForceDummyAudioArg = config.additionalArgs.contains {
+                    $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--force-dummy-audio"
+                }
+
+                if hadForceDummyAudioArg {
+                    config.additionalArgs.removeAll {
+                        $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--force-dummy-audio"
+                    }
+
+                    LogCapture.shared.logDiagnostic("Eastward compatibility: removed --force-dummy-audio for iOS post-fix profile")
+                }
 
                 while let graphicsBackendIndex = config.additionalArgs.firstIndex(where: {
                     $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--graphics-backend"

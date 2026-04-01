@@ -1,7 +1,13 @@
 # Eastward iOS Mitigation Tracker
 
-Last update: 2026-04-01 (after latest log 15:59, EventWait v6 confirmed, early lifecycle termination persists)
+Last update: 2026-04-01 (after latest log 17:49, EventWait v6 confirmed, NV wait not observed, iPad lifecycle termination still occurs)
 Title ID: 010071b00f63a000
+
+## Status Fase Baru (PC-first Baseline)
+- Baseline terbaru: scene Eastward yang sebelumnya stuck kini bisa lewat saat diuji di Windows (simulasi PC) pada source terbaru.
+- Implikasi: daftar mitigasi lama di bawah ini dianggap sudah dieksplorasi menyeluruh dan **tidak diulang** kecuali ada perubahan code path yang relevan.
+- Fokus investigasi berpindah ke gap platform iOS (lifecycle, Vulkan/MoltenVK runtime path, resource pressure), bukan lagi tuning umum yang sudah terbukti gagal.
+- Aturan eksperimen baru: setiap perubahan harus lolos regresi scene di PC dulu, baru lanjut validasi di iPad.
 
 ## Tujuan
 Mencatat semua mitigasi yang sudah/pernah dicoba di source workspace ini agar tidak mengulang percobaan yang sama dan supaya status uji jelas sebelum build berikutnya.
@@ -39,6 +45,9 @@ Mencatat semua mitigasi yang sudah/pernah dicoba di source workspace ini agar ti
   - Jangan negative-cache graphics pipeline failure sebagai `null` pada MoltenVK.
   - Jangan set `ProgramLinkStatus.Failure` jika background *graphics* pipeline compilation gagal di MoltenVK (defer ke runtime on-demand compile).
   - Alasan: kegagalan pipeline di iOS/MoltenVK bisa transient; cache `null`/forced link failure membuat draw terblok permanen pada state yang sebenarnya bisa recover.
+- [ACTIVE-PENDING] Eastward iOS post-fix profile (v8):
+  - Hentikan override lama yang dipaksa terus: `--disable-shader-cache`, `--backend-threading Off`, `--force-dummy-audio`.
+  - Pakai baseline runtime default (shader cache aktif, backend-threading default/Auto, audio default) agar tidak menambah stall baru di iOS setelah jalur syncpoint membaik.
 
 ## Hasil Log Terakhir (Sebelum V4)
 - Marker `MELONX_IOS_NV_WAIT_V3` sudah muncul (build terbaru terpakai).
@@ -77,25 +86,37 @@ Mencatat semua mitigasi yang sudah/pernah dicoba di source workspace ini agar ti
   - `UIApplication.willTerminate received`
 - Interpretasi: jalur small-delta syncpoint wait sudah bukan blocker utama pada sesi ini; failure bergerak ke jalur runtime/lifecycle lain.
 
-## Gejala Konsisten di Log
-- Freeze lalu muncul warning:
-  - `ServiceNv Wait: GPU processing thread is too slow, waiting on CPU...`
-- Setelah itu app masuk lifecycle:
+## Hasil Log Terbaru (17:49)
+- Marker `MELONX_IOS_EVENTWAIT_V6` tetap muncul dan promosi syncpoint berjalan:
+  - `syncpt=2, target=3, before=1, after=3, promotedBy=2`
+  - `syncpt=1, target=3, before=1, after=3, promotedBy=2`
+- `ServiceNv Wait: GPU processing thread is too slow...` tidak terlihat pada sesi ini.
+- Jalur boot game sudah lewat tahap penting:
+  - `Loader Start: Application Loaded: Eastward ...`
+  - Vulkan device/swapchain berhasil dibuat di MoltenVK.
+- Namun app tetap berakhir lifecycle iOS:
   - `App will resign active`
   - `App entered background`
-  - kadang diikuti `Audio session interruption began` (kemungkinan efek lanjutan, bukan akar awal).
+  - `UIApplication.willTerminate received`
+- Interpretasi: gap utama saat ini bukan lagi wait syncpoint kecil, melainkan freeze/termination pada jalur runtime iOS setelah game mulai jalan.
+
+## Gejala Konsisten di Log
+- Pola lama (sebelum v6 dominan):
+  - `ServiceNv Wait: GPU processing thread is too slow, waiting on CPU...`
+- Pola terbaru (setelah v6 aktif):
+  - Marker `ServiceNv Wait` bisa tidak muncul sama sekali.
+  - App tetap masuk lifecycle: `App will resign active` -> `App entered background` -> `UIApplication.willTerminate received`.
 
 ## Kesimpulan Sementara
-Dengan audio dummy + threading off + shader cache off + non-dualmapped JIT + argument buffers OFF + low GPU load tetap reproduksi, dugaan sangat kuat mengarah ke jalur engine/runtime GPU Vulkan Eastward pada iOS 16.1, bukan sekadar setting game biasa. Uji OpenGL juga tidak bisa dijadikan pembanding karena iOS otomatis fallback ke Vulkan.
+Lockdown lama (audio dummy + threading off + shader cache off + low GPU load) tidak menyelesaikan kasus, dan kini berpotensi menjadi sumber stall baru pada iOS setelah jalur syncpoint membaik. Dugaan utama tetap di jalur runtime iOS/Vulkan lifecycle setelah game start, bukan masalah setting umum.
 
 ## Langkah Berikutnya
-1. Build dengan patch v7 (MoltenVK pipeline retry) + patch v6 tetap aktif.
+1. Build dengan patch v8 (post-fix profile) + patch v6/v7 tetap aktif.
 2. Verifikasi marker log:
   - `MELONX_IOS_EVENTWAIT_V6: promoted syncpoint in EventWait fallback. ...`
-  - `MELONX_IOS_NV_WAIT_V5: GPU processing thread is too slow, waiting on CPU... syncpt=..., target=..., current=..., remaining=..., failingCount=..., isIos=true`
-  - `MELONX_IOS_NV_WAIT_V5: skipping CPU wait on iOS for small syncpoint delta ..., stallCount=..., returning TryAgain.`
-  - `MELONX_IOS_NV_WAIT_V5: small-delta stall persisted for fence, forcing Success to break TryAgain loop...`
-  - `MELONX_IOS_NV_WAIT_V5: promoted syncpoint after forced success. ... promotedBy=...`
-  - `MELONX_IOS_NV_WAIT_V5: bounded CPU wait timed out after 16ms, continuing with TryAgain...`
+  - Tidak ada lagi forced args lama di launch argv:
+    - `--disable-shader-cache`
+    - `--backend-threading Off`
+    - `--force-dummy-audio`
   - `Background graphics compilation failed on MoltenVK, deferring to runtime pipeline creation: ...` (jika terjadi)
-3. Jika masih stuck/background tanpa marker `ServiceNv Wait`, lanjutkan forensics ke jalur Vulkan scene runtime (pipeline churn / compile error burst per draw).
+3. Jika masih stuck/background tanpa marker `ServiceNv Wait`, lanjutkan forensics ke jalur lifecycle iOS + runtime Vulkan scene (frame progression dan state transition setelah `Application Loaded`).
