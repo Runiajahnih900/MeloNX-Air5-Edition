@@ -120,6 +120,7 @@ struct EmulationView: View {
             RegisterCallback("exit-emulation") { cool in
                Task { @MainActor in
                     print(cool)
+                    LogCapture.shared.logDiagnostic("EmulationView callback: exit-emulation received from core with payload=\(cool)")
                     self.stop()
                 }
             }
@@ -128,19 +129,35 @@ struct EmulationView: View {
         .onKeyPress()
         .focused($isFocused)
         .onChange(of: scenePhase) { newPhase in
-            // Detect when the app enters the background
+            let phaseName: String
+            switch newPhase {
+            case .active:
+                phaseName = "active"
+            case .inactive:
+                phaseName = "inactive"
+            case .background:
+                phaseName = "background"
+            @unknown default:
+                phaseName = "unknown"
+            }
+
+            LogCapture.shared.logDiagnostic("EmulationView scenePhase changed to \(phaseName)")
+
             if newPhase == .background {
                 RyujinxBridge.pauseEmulation(true)
                 isInBackground = true
                 pauseEmu = true
+                LogCapture.shared.logDiagnostic("EmulationView action: pauseEmulation(true) for background phase")
             } else if newPhase == .active {
                 RyujinxBridge.pauseEmulation(false)
                 isInBackground = false
                 pauseEmu = false
+                LogCapture.shared.logDiagnostic("EmulationView action: pauseEmulation(false) for active phase")
             } else if newPhase == .inactive {
                 RyujinxBridge.pauseEmulation(true)
                 isInBackground = true
                 pauseEmu = true
+                LogCapture.shared.logDiagnostic("EmulationView action: pauseEmulation(true) for inactive phase")
             }
         }
         .sheet(isPresented: $showControllerSettings) {
@@ -294,6 +311,7 @@ struct EmulationView: View {
     
     
     func stop() {
+        LogCapture.shared.logDiagnostic("EmulationView stop() invoked: requesting stopEmulation and ryujinx.stop")
         gameHandler.showApp = true
         Timer.scheduledTimer(withTimeInterval: 0.2, repeats: false) { _ in
             gameHandler.currentGame = nil
