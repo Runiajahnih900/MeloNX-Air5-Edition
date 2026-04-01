@@ -9,6 +9,10 @@ Title ID: 010071b00f63a000
 - Fokus investigasi berpindah ke gap platform iOS (lifecycle, Vulkan/MoltenVK runtime path, resource pressure), bukan lagi tuning umum yang sudah terbukti gagal.
 - Aturan eksperimen baru: setiap perubahan harus lolos regresi scene di PC dulu, baru lanjut validasi di iPad.
 
+## Constraint Platform (Tetap)
+- Target device/OS saat ini dikunci pada iPad Air 5 dengan iPadOS 16.1.
+- Rekomendasi update OS tidak dijadikan prasyarat; semua mitigasi lanjutan harus kompatibel dengan 16.1.
+
 ## Tujuan
 Mencatat semua mitigasi yang sudah/pernah dicoba di source workspace ini agar tidak mengulang percobaan yang sama dan supaya status uji jelas sebelum build berikutnya.
 
