@@ -472,6 +472,13 @@ namespace Ryujinx.Graphics.Vulkan
             }
             catch (VulkanException e)
             {
+                if (_gd.IsMoltenVk && !IsCompute)
+                {
+                    Logger.Warning?.PrintMsg(LogClass.Gpu, $"Background graphics compilation failed on MoltenVK, deferring to runtime pipeline creation: {e.Message}");
+
+                    return;
+                }
+
                 Logger.Error?.PrintMsg(LogClass.Gpu, $"Background Compilation failed: {e.Message}");
 
                 LinkStatus = ProgramLinkStatus.Failure;

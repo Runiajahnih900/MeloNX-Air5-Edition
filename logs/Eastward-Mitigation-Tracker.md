@@ -1,6 +1,6 @@
 # Eastward iOS Mitigation Tracker
 
-Last update: 2026-04-01 (after latest log 07:33, NV wait/EventWait patch v6)
+Last update: 2026-04-01 (after latest log 13:06, NV wait/EventWait v6 validated, Vulkan retry mitigation added)
 Title ID: 010071b00f63a000
 
 ## Tujuan
@@ -35,6 +35,10 @@ Mencatat semua mitigasi yang sudah/pernah dicoba di source workspace ini agar ti
 ## Mitigasi Aktif di Source (Belum Ada Bukti Log Final)
 - [ACTIVE-PENDING] iOS patch v6: pertahankan NV wait v5 + fallback promosi syncpoint di level `EventWait` (NvHostCtrlDeviceFile) untuk delta kecil agar jalur tidak bergantung hanya pada `NvHostEvent`.
   - Alasan: pola stuck selalu berakhir di `GPU processing thread is too slow, waiting on CPU...`; wait tak terbatas kemungkinan memicu app unresponsive lalu background.
+- [ACTIVE-PENDING] Vulkan MoltenVK retry path (v7):
+  - Jangan negative-cache graphics pipeline failure sebagai `null` pada MoltenVK.
+  - Jangan set `ProgramLinkStatus.Failure` jika background *graphics* pipeline compilation gagal di MoltenVK (defer ke runtime on-demand compile).
+  - Alasan: kegagalan pipeline di iOS/MoltenVK bisa transient; cache `null`/forced link failure membuat draw terblok permanen pada state yang sebenarnya bisa recover.
 
 ## Hasil Log Terakhir (Sebelum V4)
 - Marker `MELONX_IOS_NV_WAIT_V3` sudah muncul (build terbaru terpakai).
@@ -54,6 +58,14 @@ Mencatat semua mitigasi yang sudah/pernah dicoba di source workspace ini agar ti
 - Artinya gap syncpoint di level `NvHostEvent` memang tertutup, tetapi app tetap langsung resign/background sesudahnya.
 - Mitigasi v6 menambahkan fallback lebih awal di `EventWait` untuk kasus delta kecil yang sama.
 
+## Hasil Log Terbaru (Setelah V6, sebelum V7)
+- Marker `MELONX_IOS_EVENTWAIT_V6` muncul dan promosi syncpoint terjadi sangat awal:
+  - `syncpt=2, target=3, before=1, after=3, promotedBy=2`
+  - `syncpt=1, target=3, before=1, after=3, promotedBy=2`
+- Pada log terbaru ini tidak terlihat lagi marker `MELONX_IOS_NV_WAIT_V5: GPU processing thread is too slow...`.
+- Artinya fallback v6 aktif dan menutup kasus small-delta wait paling awal.
+- Namun sesi masih berakhir dengan lifecycle background/terminate, jadi akar masalah kemungkinan bergeser ke jalur runtime GPU/pipeline scene tertentu (bukan semata wait-loop syncpoint kecil).
+
 ## Gejala Konsisten di Log
 - Freeze lalu muncul warning:
   - `ServiceNv Wait: GPU processing thread is too slow, waiting on CPU...`
@@ -66,7 +78,7 @@ Mencatat semua mitigasi yang sudah/pernah dicoba di source workspace ini agar ti
 Dengan audio dummy + threading off + shader cache off + non-dualmapped JIT + argument buffers OFF + low GPU load tetap reproduksi, dugaan sangat kuat mengarah ke jalur engine/runtime GPU Vulkan Eastward pada iOS 16.1, bukan sekadar setting game biasa. Uji OpenGL juga tidak bisa dijadikan pembanding karena iOS otomatis fallback ke Vulkan.
 
 ## Langkah Berikutnya
-1. Build dengan patch iOS bounded CPU wait di `NvHostEvent` yang sudah ada di source.
+1. Build dengan patch v7 (MoltenVK pipeline retry) + patch v6 tetap aktif.
 2. Verifikasi marker log:
   - `MELONX_IOS_EVENTWAIT_V6: promoted syncpoint in EventWait fallback. ...`
   - `MELONX_IOS_NV_WAIT_V5: GPU processing thread is too slow, waiting on CPU... syncpt=..., target=..., current=..., remaining=..., failingCount=..., isIos=true`
@@ -74,4 +86,5 @@ Dengan audio dummy + threading off + shader cache off + non-dualmapped JIT + arg
   - `MELONX_IOS_NV_WAIT_V5: small-delta stall persisted for fence, forcing Success to break TryAgain loop...`
   - `MELONX_IOS_NV_WAIT_V5: promoted syncpoint after forced success. ... promotedBy=...`
   - `MELONX_IOS_NV_WAIT_V5: bounded CPU wait timed out after 16ms, continuing with TryAgain...`
-3. Jika masih muncul pola `ServiceNv Wait` + background, tandai issue sebagai engine-level regression/pathology untuk Eastward di iOS.
+  - `Background graphics compilation failed on MoltenVK, deferring to runtime pipeline creation: ...` (jika terjadi)
+3. Jika masih stuck/background tanpa marker `ServiceNv Wait`, lanjutkan forensics ke jalur Vulkan scene runtime (pipeline churn / compile error burst per draw).

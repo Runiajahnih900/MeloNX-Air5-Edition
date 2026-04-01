@@ -653,7 +653,10 @@ namespace Ryujinx.Graphics.Vulkan
                 }
                 else if (result.IsError())
                 {
-                    program.AddGraphicsPipeline(ref Internal, null);
+                    if (!isMoltenVk)
+                    {
+                        program.AddGraphicsPipeline(ref Internal, null);
+                    }
 
                     return null;
                 }
