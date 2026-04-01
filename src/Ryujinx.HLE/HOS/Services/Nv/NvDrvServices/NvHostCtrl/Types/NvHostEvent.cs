@@ -25,6 +25,9 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
 
         private NvFence _previousFailingFence;
         private uint _failingCount;
+        private NvFence _previousIosSmallDeltaFence;
+        private uint _previousIosSmallDeltaSyncpointValue;
+        private uint _iosSmallDeltaStallCount;
 
         public readonly object Lock = new();
 
@@ -34,6 +37,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
         /// </summary>
         private const uint FailingCountMax = 2;
         private const uint IosSkipCpuWaitDeltaThreshold = 2;
+        private const uint IosSmallDeltaForceSuccessThreshold = 2;
         private static readonly TimeSpan IosCpuWaitTimeout = TimeSpan.FromMilliseconds(16);
 
         public NvHostEvent(NvHostSyncpt syncpointManager, uint eventId, Horizon system)
@@ -54,6 +58,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
             _syncpointManager = syncpointManager;
 
             ResetFailingState();
+            ResetIosSmallDeltaStallState();
         }
 
         private void ResetFailingState()
@@ -61,6 +66,14 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
             _previousFailingFence.Id = NvFence.InvalidSyncPointId;
             _previousFailingFence.Value = 0;
             _failingCount = 0;
+        }
+
+        private void ResetIosSmallDeltaStallState()
+        {
+            _previousIosSmallDeltaFence.Id = NvFence.InvalidSyncPointId;
+            _previousIosSmallDeltaFence.Value = 0;
+            _previousIosSmallDeltaSyncpointValue = 0;
+            _iosSmallDeltaStallCount = 0;
         }
 
         private void Signal()
@@ -92,6 +105,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
                 }
 
                 ResetFailingState();
+                ResetIosSmallDeltaStallState();
 
                 Signal();
             }
@@ -145,20 +159,49 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
                     uint remainingSyncpointDelta = Fence.Value > currentSyncpointValue ? Fence.Value - currentSyncpointValue : 0;
                     Logger.Warning?.Print(
                         LogClass.ServiceNv,
-                        $"MELONX_IOS_NV_WAIT_V3: GPU processing thread is too slow, waiting on CPU... syncpt={Fence.Id}, target={Fence.Value}, current={currentSyncpointValue}, remaining={remainingSyncpointDelta}, failingCount={_failingCount}, isIos={isIos}");
+                        $"MELONX_IOS_NV_WAIT_V4: GPU processing thread is too slow, waiting on CPU... syncpt={Fence.Id}, target={Fence.Value}, current={currentSyncpointValue}, remaining={remainingSyncpointDelta}, failingCount={_failingCount}, isIos={isIos}");
 
                     if (isIos)
                     {
                         if (remainingSyncpointDelta <= IosSkipCpuWaitDeltaThreshold)
                         {
+                            bool sameFenceAndSyncpoint = _previousIosSmallDeltaFence.Id == Fence.Id &&
+                                                         _previousIosSmallDeltaFence.Value == Fence.Value &&
+                                                         _previousIosSmallDeltaSyncpointValue == currentSyncpointValue;
+
+                            if (sameFenceAndSyncpoint)
+                            {
+                                _iosSmallDeltaStallCount++;
+                            }
+                            else
+                            {
+                                _iosSmallDeltaStallCount = 1;
+                                _previousIosSmallDeltaFence = Fence;
+                                _previousIosSmallDeltaSyncpointValue = currentSyncpointValue;
+                            }
+
                             Logger.Warning?.Print(
                                 LogClass.ServiceNv,
-                                $"MELONX_IOS_NV_WAIT_V3: skipping CPU wait on iOS for small syncpoint delta (remaining={remainingSyncpointDelta} <= {IosSkipCpuWaitDeltaThreshold}), returning TryAgain.");
+                                $"MELONX_IOS_NV_WAIT_V4: skipping CPU wait on iOS for small syncpoint delta (remaining={remainingSyncpointDelta} <= {IosSkipCpuWaitDeltaThreshold}), stallCount={_iosSmallDeltaStallCount}, returning TryAgain.");
+
+                            if (_iosSmallDeltaStallCount >= IosSmallDeltaForceSuccessThreshold)
+                            {
+                                Logger.Warning?.Print(
+                                    LogClass.ServiceNv,
+                                    $"MELONX_IOS_NV_WAIT_V4: small-delta stall persisted for fence, forcing Success to break TryAgain loop. syncpt={Fence.Id}, target={Fence.Value}, current={currentSyncpointValue}, stallCount={_iosSmallDeltaStallCount}");
+
+                                ResetFailingState();
+                                ResetIosSmallDeltaStallState();
+
+                                return false;
+                            }
 
                             ResetFailingState();
 
                             return true;
                         }
+
+                        ResetIosSmallDeltaStallState();
 
                         bool signaled = Fence.Wait(gpuContext, IosCpuWaitTimeout);
                         uint updatedSyncpointValue = gpuContext.Synchronization.GetSyncpointValue(Fence.Id);
@@ -167,7 +210,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
                         {
                             Logger.Warning?.Print(
                                 LogClass.ServiceNv,
-                                $"MELONX_IOS_NV_WAIT_V3: bounded CPU wait timed out after {IosCpuWaitTimeout.TotalMilliseconds}ms, continuing with TryAgain. syncpt={Fence.Id}, target={Fence.Value}, current={updatedSyncpointValue}");
+                                $"MELONX_IOS_NV_WAIT_V4: bounded CPU wait timed out after {IosCpuWaitTimeout.TotalMilliseconds}ms, continuing with TryAgain. syncpt={Fence.Id}, target={Fence.Value}, current={updatedSyncpointValue}");
                         }
 
                         ResetFailingState();
@@ -179,6 +222,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
                     Fence.Wait(gpuContext, Timeout.InfiniteTimeSpan);
 
                     ResetFailingState();
+                    ResetIosSmallDeltaStallState();
 
                     return false;
                 }
