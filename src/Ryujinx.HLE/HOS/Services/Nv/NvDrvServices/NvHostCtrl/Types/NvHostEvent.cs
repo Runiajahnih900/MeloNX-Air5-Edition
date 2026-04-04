@@ -36,12 +36,15 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
         private const uint FailingCountMax = 2;
         private const uint IosSkipCpuWaitDeltaThreshold = 2;
         private const uint IosSmallDeltaForceSuccessThreshold = 2;
+        private const uint IosTimeoutPromotionDeltaThreshold = 8;
         private static readonly TimeSpan IosBlockingCpuWaitTimeout = TimeSpan.FromMilliseconds(120);
         private static readonly TimeSpan IosCpuWaitTimeout = TimeSpan.FromMilliseconds(16);
         private static readonly bool IosNvWaitPromotionEnabled =
             string.Equals(Environment.GetEnvironmentVariable("MELONX_IOS_NV_WAIT_PROMOTION"), "1", StringComparison.Ordinal);
         private static readonly bool IosNvWaitBlockingEnabled =
             string.Equals(Environment.GetEnvironmentVariable("MELONX_IOS_NV_WAIT_BLOCKING"), "1", StringComparison.Ordinal);
+        private static readonly bool IosNvWaitTimeoutPromotionEnabled =
+            string.Equals(Environment.GetEnvironmentVariable("MELONX_IOS_NV_WAIT_TIMEOUT_PROMOTION"), "1", StringComparison.Ordinal);
 
         public NvHostEvent(NvHostSyncpt syncpointManager, uint eventId, Horizon system)
         {
@@ -196,6 +199,29 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
 
                             if (blockingTimedOut)
                             {
+                                uint timeoutRemainingDelta = Fence.Value > blockingUpdatedSyncpointValue
+                                    ? Fence.Value - blockingUpdatedSyncpointValue
+                                    : 0;
+
+                                if (IosNvWaitTimeoutPromotionEnabled && timeoutRemainingDelta > 0 && timeoutRemainingDelta <= IosTimeoutPromotionDeltaThreshold)
+                                {
+                                    for (uint i = 0; i < timeoutRemainingDelta; i++)
+                                    {
+                                        _syncpointManager.Increment(Fence.Id);
+                                    }
+
+                                    uint promotedSyncpointValue = gpuContext.Synchronization.GetSyncpointValue(Fence.Id);
+
+                                    Logger.Warning?.Print(
+                                        LogClass.ServiceNv,
+                                        $"MELONX_IOS_NV_WAIT_V7: timeout promotion applied on iOS to avoid guest abort. syncpt={Fence.Id}, target={Fence.Value}, before={blockingUpdatedSyncpointValue}, after={promotedSyncpointValue}, promotedBy={timeoutRemainingDelta}");
+
+                                    ResetFailingState();
+                                    ResetIosSmallDeltaStallState();
+
+                                    return false;
+                                }
+
                                 Logger.Warning?.Print(
                                     LogClass.ServiceNv,
                                     $"MELONX_IOS_NV_WAIT_V6: blocking CPU wait timed out after {IosBlockingCpuWaitTimeout.TotalMilliseconds}ms, continuing with TryAgain to avoid deadlock. syncpt={Fence.Id}, target={Fence.Value}, current={blockingUpdatedSyncpointValue}");

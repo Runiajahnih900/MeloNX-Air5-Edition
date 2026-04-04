@@ -167,12 +167,14 @@ class LaunchGameHandler: ObservableObject {
         let enableNvWaitPromotion = nativeSettings.setting(forKey: "iosNvWaitPromotionFallback", default: false).value
         let activeTitleId = currentGame?.titleId.lowercased() ?? ""
         let enableNvWaitBlocking = !ProcessInfo.processInfo.isiOSAppOnMac && activeTitleId == Self.storyOfSeasonsTitleId
+        let enableNvWaitTimeoutPromotion = !ProcessInfo.processInfo.isiOSAppOnMac && activeTitleId == Self.storyOfSeasonsTitleId
 
         setenv("MELONX_IOS_EVENTWAIT_PROMOTION", enableEventWaitPromotion ? "1" : "0", 1)
         setenv("MELONX_IOS_NV_WAIT_PROMOTION", enableNvWaitPromotion ? "1" : "0", 1)
         setenv("MELONX_IOS_NV_WAIT_BLOCKING", enableNvWaitBlocking ? "1" : "0", 1)
+        setenv("MELONX_IOS_NV_WAIT_TIMEOUT_PROMOTION", enableNvWaitTimeoutPromotion ? "1" : "0", 1)
 
-        LogCapture.shared.logDiagnostic("Env setup: iosEventWaitPromotionFallback=\(enableEventWaitPromotion), iosNvWaitPromotionFallback=\(enableNvWaitPromotion), iosNvWaitBlocking=\(enableNvWaitBlocking)")
+        LogCapture.shared.logDiagnostic("Env setup: iosEventWaitPromotionFallback=\(enableEventWaitPromotion), iosNvWaitPromotionFallback=\(enableNvWaitPromotion), iosNvWaitBlocking=\(enableNvWaitBlocking), iosNvWaitTimeoutPromotion=\(enableNvWaitTimeoutPromotion)")
 
         var useDualMappedJIT: Bool
         if #available(iOS 19, *) {
