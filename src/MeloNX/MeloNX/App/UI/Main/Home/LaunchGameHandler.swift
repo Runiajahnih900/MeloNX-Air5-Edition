@@ -165,11 +165,14 @@ class LaunchGameHandler: ObservableObject {
 
         let enableEventWaitPromotion = nativeSettings.setting(forKey: "iosEventWaitPromotionFallback", default: false).value
         let enableNvWaitPromotion = nativeSettings.setting(forKey: "iosNvWaitPromotionFallback", default: false).value
+        let activeTitleId = currentGame?.titleId.lowercased() ?? ""
+        let enableNvWaitBlocking = !ProcessInfo.processInfo.isiOSAppOnMac && activeTitleId == Self.storyOfSeasonsTitleId
 
         setenv("MELONX_IOS_EVENTWAIT_PROMOTION", enableEventWaitPromotion ? "1" : "0", 1)
         setenv("MELONX_IOS_NV_WAIT_PROMOTION", enableNvWaitPromotion ? "1" : "0", 1)
+        setenv("MELONX_IOS_NV_WAIT_BLOCKING", enableNvWaitBlocking ? "1" : "0", 1)
 
-        LogCapture.shared.logDiagnostic("Env setup: iosEventWaitPromotionFallback=\(enableEventWaitPromotion), iosNvWaitPromotionFallback=\(enableNvWaitPromotion)")
+        LogCapture.shared.logDiagnostic("Env setup: iosEventWaitPromotionFallback=\(enableEventWaitPromotion), iosNvWaitPromotionFallback=\(enableNvWaitPromotion), iosNvWaitBlocking=\(enableNvWaitBlocking)")
 
         var useDualMappedJIT: Bool
         if #available(iOS 19, *) {
@@ -178,7 +181,6 @@ class LaunchGameHandler: ObservableObject {
             useDualMappedJIT = nativeSettings.setting(forKey: "DUAL_MAPPED_JIT", default: false).value
         }
 
-        let activeTitleId = currentGame?.titleId.lowercased() ?? ""
         if activeTitleId == Self.storyOfSeasonsTitleId && !ProcessInfo.processInfo.isiOSAppOnMac && !useDualMappedJIT {
             useDualMappedJIT = true
             LogCapture.shared.logDiagnostic("Env setup: forcing DualMappedJIT for Story of Seasons iOS load-save compatibility")

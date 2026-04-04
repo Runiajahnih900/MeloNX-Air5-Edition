@@ -39,6 +39,8 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
         private static readonly TimeSpan IosCpuWaitTimeout = TimeSpan.FromMilliseconds(16);
         private static readonly bool IosNvWaitPromotionEnabled =
             string.Equals(Environment.GetEnvironmentVariable("MELONX_IOS_NV_WAIT_PROMOTION"), "1", StringComparison.Ordinal);
+        private static readonly bool IosNvWaitBlockingEnabled =
+            string.Equals(Environment.GetEnvironmentVariable("MELONX_IOS_NV_WAIT_BLOCKING"), "1", StringComparison.Ordinal);
 
         public NvHostEvent(NvHostSyncpt syncpointManager, uint eventId, Horizon system)
         {
@@ -184,6 +186,22 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
 
                     if (isIos)
                     {
+                        if (IosNvWaitBlockingEnabled)
+                        {
+                            Fence.Wait(gpuContext, Timeout.InfiniteTimeSpan);
+
+                            uint updatedSyncpointValue = gpuContext.Synchronization.GetSyncpointValue(Fence.Id);
+
+                            Logger.Warning?.Print(
+                                LogClass.ServiceNv,
+                                $"MELONX_IOS_NV_WAIT_V6: blocking CPU wait enabled on iOS, waited until fence signal. syncpt={Fence.Id}, target={Fence.Value}, current={updatedSyncpointValue}");
+
+                            ResetFailingState();
+                            ResetIosSmallDeltaStallState();
+
+                            return false;
+                        }
+
                         if (IosNvWaitPromotionEnabled && remainingSyncpointDelta <= IosSkipCpuWaitDeltaThreshold)
                         {
                             bool sameFenceAndSyncpoint = _previousIosSmallDeltaFence.Id == Fence.Id &&
