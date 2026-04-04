@@ -131,6 +131,7 @@ class LaunchGameHandler: ObservableObject {
         }
 
         applyLargeGameMemoryProfileIfNeeded(for: currentGame, config: &config, crashForensicsMode: crashForensicsMode)
+        applyStoryOfSeasonsCompatibilityProfileIfNeeded(for: currentGame, config: &config)
 
         if config.hypervisor && !(ProcessInfo.processInfo.isiOSAppOnMac || checkAppEntitlement("com.apple.private.hypervisor")) {
             config.hypervisor = false
@@ -294,5 +295,20 @@ class LaunchGameHandler: ObservableObject {
         }
 
         return nil
+    }
+
+    private func applyStoryOfSeasonsCompatibilityProfileIfNeeded(for game: Game, config: inout Ryujinx.Arguments) {
+        guard !ProcessInfo.processInfo.isiOSAppOnMac,
+              game.titleId.lowercased() == Self.storyOfSeasonsTitleId else {
+            return
+        }
+
+        let normalizedArgs = Set(config.additionalArgs.map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() })
+
+        if !normalizedArgs.contains("--backend-threading") {
+            config.additionalArgs.append("--backend-threading")
+            config.additionalArgs.append("Off")
+            LogCapture.shared.logDiagnostic("Story of Seasons compatibility: forcing --backend-threading Off")
+        }
     }
 }
