@@ -189,30 +189,30 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
                     {
                         if (IosNvWaitBlockingEnabled)
                         {
-                            bool blockingSignaled = Fence.Wait(gpuContext, IosBlockingCpuWaitTimeout);
+                            bool blockingTimedOut = Fence.Wait(gpuContext, IosBlockingCpuWaitTimeout);
 
                             uint blockingUpdatedSyncpointValue = gpuContext.Synchronization.GetSyncpointValue(Fence.Id);
 
-                            if (blockingSignaled)
+                            if (blockingTimedOut)
                             {
                                 Logger.Warning?.Print(
                                     LogClass.ServiceNv,
-                                    $"MELONX_IOS_NV_WAIT_V6: blocking CPU wait enabled on iOS, waited until fence signal. syncpt={Fence.Id}, target={Fence.Value}, current={blockingUpdatedSyncpointValue}");
+                                    $"MELONX_IOS_NV_WAIT_V6: blocking CPU wait timed out after {IosBlockingCpuWaitTimeout.TotalMilliseconds}ms, continuing with TryAgain to avoid deadlock. syncpt={Fence.Id}, target={Fence.Value}, current={blockingUpdatedSyncpointValue}");
 
                                 ResetFailingState();
                                 ResetIosSmallDeltaStallState();
 
-                                return false;
+                                return true;
                             }
 
                             Logger.Warning?.Print(
                                 LogClass.ServiceNv,
-                                $"MELONX_IOS_NV_WAIT_V6: blocking CPU wait timed out after {IosBlockingCpuWaitTimeout.TotalMilliseconds}ms, continuing with TryAgain to avoid deadlock. syncpt={Fence.Id}, target={Fence.Value}, current={blockingUpdatedSyncpointValue}");
+                                $"MELONX_IOS_NV_WAIT_V6: blocking CPU wait enabled on iOS, fence reached. syncpt={Fence.Id}, target={Fence.Value}, current={blockingUpdatedSyncpointValue}");
 
                             ResetFailingState();
                             ResetIosSmallDeltaStallState();
 
-                            return true;
+                            return false;
                         }
 
                         if (IosNvWaitPromotionEnabled && remainingSyncpointDelta <= IosSkipCpuWaitDeltaThreshold)
@@ -257,10 +257,10 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
 
                         ResetIosSmallDeltaStallState();
 
-                        bool signaled = Fence.Wait(gpuContext, IosCpuWaitTimeout);
+                        bool timedOut = Fence.Wait(gpuContext, IosCpuWaitTimeout);
                         uint updatedSyncpointValue = gpuContext.Synchronization.GetSyncpointValue(Fence.Id);
 
-                        if (!signaled)
+                        if (timedOut)
                         {
                             Logger.Warning?.Print(
                                 LogClass.ServiceNv,
@@ -270,7 +270,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
                         ResetFailingState();
 
                         // true => TryAgain (not signaled yet), false => Success (fence reached)
-                        return !signaled;
+                        return timedOut;
                     }
 
                     Fence.Wait(gpuContext, Timeout.InfiniteTimeSpan);
