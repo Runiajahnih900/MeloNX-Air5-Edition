@@ -159,6 +159,14 @@ class LaunchGameHandler: ObservableObject {
     }
     
     private func configureEnvironmentVariables(for config: Ryujinx.Arguments) {
+        let enableEventWaitPromotion = nativeSettings.setting(forKey: "iosEventWaitPromotionFallback", default: false).value
+        let enableNvWaitPromotion = nativeSettings.setting(forKey: "iosNvWaitPromotionFallback", default: false).value
+
+        setenv("MELONX_IOS_EVENTWAIT_PROMOTION", enableEventWaitPromotion ? "1" : "0", 1)
+        setenv("MELONX_IOS_NV_WAIT_PROMOTION", enableNvWaitPromotion ? "1" : "0", 1)
+
+        LogCapture.shared.logDiagnostic("Env setup: iosEventWaitPromotionFallback=\(enableEventWaitPromotion), iosNvWaitPromotionFallback=\(enableNvWaitPromotion)")
+
         var useDualMappedJIT: Bool
         if #available(iOS 19, *) {
             useDualMappedJIT = nativeSettings.setting(forKey: "DUAL_MAPPED_JIT", default: true).value

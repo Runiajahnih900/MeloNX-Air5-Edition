@@ -375,7 +375,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
 
                     Logger.Warning?.Print(
                         LogClass.ServiceNv,
-                        $"MELONX_IOS_EVENTWAIT_V6: promoted syncpoint in EventWait fallback. syncpt={fence.Id}, target={fence.Value}, before={newCachedSyncpointValue}, after={promotedSyncpointValue}, promotedBy={remainingSyncpointDelta}");
+                        $"MELONX_IOS_EVENTWAIT_V7: promoted syncpoint in EventWait fallback. syncpt={fence.Id}, target={fence.Value}, before={newCachedSyncpointValue}, after={promotedSyncpointValue}, promotedBy={remainingSyncpointDelta}");
 
                     if (_device.System.HostSyncpoint.IsSyncpointExpired(fence.Id, fence.Value))
                     {
