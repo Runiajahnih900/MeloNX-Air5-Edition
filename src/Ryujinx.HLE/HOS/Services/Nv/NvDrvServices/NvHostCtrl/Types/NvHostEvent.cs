@@ -37,6 +37,8 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
         private const uint IosSkipCpuWaitDeltaThreshold = 2;
         private const uint IosSmallDeltaForceSuccessThreshold = 2;
         private static readonly TimeSpan IosCpuWaitTimeout = TimeSpan.FromMilliseconds(16);
+        private static readonly bool IosNvWaitPromotionEnabled =
+            string.Equals(Environment.GetEnvironmentVariable("MELONX_IOS_NV_WAIT_PROMOTION"), "1", StringComparison.Ordinal);
 
         public NvHostEvent(NvHostSyncpt syncpointManager, uint eventId, Horizon system)
         {
@@ -78,7 +80,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
         {
             uint remainingSyncpointDelta = Fence.Value > currentSyncpointValue ? Fence.Value - currentSyncpointValue : 0;
 
-            if (!OperatingSystem.IsIOS() || remainingSyncpointDelta == 0 || remainingSyncpointDelta > IosSkipCpuWaitDeltaThreshold)
+            if (!OperatingSystem.IsIOS() || !IosNvWaitPromotionEnabled || remainingSyncpointDelta == 0 || remainingSyncpointDelta > IosSkipCpuWaitDeltaThreshold)
             {
                 return;
             }
@@ -182,7 +184,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
 
                     if (isIos)
                     {
-                        if (remainingSyncpointDelta <= IosSkipCpuWaitDeltaThreshold)
+                        if (IosNvWaitPromotionEnabled && remainingSyncpointDelta <= IosSkipCpuWaitDeltaThreshold)
                         {
                             bool sameFenceAndSyncpoint = _previousIosSmallDeltaFence.Id == Fence.Id &&
                                                          _previousIosSmallDeltaFence.Value == Fence.Value &&
