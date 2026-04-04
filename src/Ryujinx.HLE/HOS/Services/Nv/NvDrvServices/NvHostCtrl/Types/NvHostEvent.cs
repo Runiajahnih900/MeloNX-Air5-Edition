@@ -190,11 +190,11 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
                         {
                             Fence.Wait(gpuContext, Timeout.InfiniteTimeSpan);
 
-                            uint updatedSyncpointValue = gpuContext.Synchronization.GetSyncpointValue(Fence.Id);
+                            uint blockingUpdatedSyncpointValue = gpuContext.Synchronization.GetSyncpointValue(Fence.Id);
 
                             Logger.Warning?.Print(
                                 LogClass.ServiceNv,
-                                $"MELONX_IOS_NV_WAIT_V6: blocking CPU wait enabled on iOS, waited until fence signal. syncpt={Fence.Id}, target={Fence.Value}, current={updatedSyncpointValue}");
+                                $"MELONX_IOS_NV_WAIT_V6: blocking CPU wait enabled on iOS, waited until fence signal. syncpt={Fence.Id}, target={Fence.Value}, current={blockingUpdatedSyncpointValue}");
 
                             ResetFailingState();
                             ResetIosSmallDeltaStallState();
