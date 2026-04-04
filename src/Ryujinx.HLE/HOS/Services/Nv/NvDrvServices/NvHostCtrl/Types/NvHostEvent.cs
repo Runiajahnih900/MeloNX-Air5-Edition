@@ -192,12 +192,25 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
                             bool blockingTimedOut = Fence.Wait(gpuContext, IosBlockingCpuWaitTimeout);
 
                             uint blockingUpdatedSyncpointValue = gpuContext.Synchronization.GetSyncpointValue(Fence.Id);
+                            bool blockingStillPending = blockingUpdatedSyncpointValue < Fence.Value;
 
                             if (blockingTimedOut)
                             {
                                 Logger.Warning?.Print(
                                     LogClass.ServiceNv,
                                     $"MELONX_IOS_NV_WAIT_V6: blocking CPU wait timed out after {IosBlockingCpuWaitTimeout.TotalMilliseconds}ms, continuing with TryAgain to avoid deadlock. syncpt={Fence.Id}, target={Fence.Value}, current={blockingUpdatedSyncpointValue}");
+
+                                ResetFailingState();
+                                ResetIosSmallDeltaStallState();
+
+                                return true;
+                            }
+
+                            if (blockingStillPending)
+                            {
+                                Logger.Warning?.Print(
+                                    LogClass.ServiceNv,
+                                    $"MELONX_IOS_NV_WAIT_V6: wait returned without timeout but fence is still pending, forcing TryAgain to avoid false success. syncpt={Fence.Id}, target={Fence.Value}, current={blockingUpdatedSyncpointValue}");
 
                                 ResetFailingState();
                                 ResetIosSmallDeltaStallState();
@@ -259,12 +272,21 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
 
                         bool timedOut = Fence.Wait(gpuContext, IosCpuWaitTimeout);
                         uint updatedSyncpointValue = gpuContext.Synchronization.GetSyncpointValue(Fence.Id);
+                        bool stillPending = updatedSyncpointValue < Fence.Value;
 
                         if (timedOut)
                         {
                             Logger.Warning?.Print(
                                 LogClass.ServiceNv,
                                 $"MELONX_IOS_NV_WAIT_V5: bounded CPU wait timed out after {IosCpuWaitTimeout.TotalMilliseconds}ms, continuing with TryAgain. syncpt={Fence.Id}, target={Fence.Value}, current={updatedSyncpointValue}");
+                        }
+                        else if (stillPending)
+                        {
+                            Logger.Warning?.Print(
+                                LogClass.ServiceNv,
+                                $"MELONX_IOS_NV_WAIT_V5: wait returned without timeout but fence is still pending, forcing TryAgain to avoid false success. syncpt={Fence.Id}, target={Fence.Value}, current={updatedSyncpointValue}");
+
+                            timedOut = true;
                         }
 
                         ResetFailingState();
