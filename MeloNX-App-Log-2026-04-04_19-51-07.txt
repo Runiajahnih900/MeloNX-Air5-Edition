@@ -1,0 +1,6 @@
+2026-04-04 19:51:08.048 MeloNX[33249:2257745] 00:00:00.000 |I| Application GetGameInfo: Loading file from PFS: /1d7c4520f1d219bc4f06bb4db284b34a.nca
+2026-04-04 19:51:08.052 MeloNX[33249:2257745] 00:00:00.000 |I| Application GetGameInfo: Loading file from PFS: /62021f2bbec25b3fa5fc075b6323dec1.nca
+2026-04-04 19:51:08.052 MeloNX[33249:2257745] 00:00:00.000 |I| Application GetGameInfo: Loading file from PFS: /ad45b63234589669903480ff5d9f2a01.nca
+2026-04-04 19:51:08.052 MeloNX[33249:2257745] 00:00:00.000 |I| Application GetGameInfo: Loading file from PFS: /b105d951733d6e5b6b95d9e48f460ce3.nca
+2026-04-04 19:51:08.052 MeloNX[33249:2257745] 00:00:00.000 |I| Application GetGameInfo: Loading file from PFS: /3c9e7ed914e3839cd66a85e27e07d7f3.cnmt.nca
+2026-04-04 19:51:09.377 MeloNX[33249:2257745] 00:00:01.329 |I| Application SetNativeWindow: SetNativeWindow called with layer: 10797835792

@@ -37,7 +37,9 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
         private const uint IosSkipCpuWaitDeltaThreshold = 2;
         private const uint IosSmallDeltaForceSuccessThreshold = 2;
         private const uint IosTimeoutPromotionDeltaThreshold = 8;
+        private const int IosCrashResilienceMaxRetries = 3;
         private static readonly TimeSpan IosBlockingCpuWaitTimeout = TimeSpan.FromMilliseconds(120);
+        private static readonly TimeSpan IosCrashResilienceBlockingTimeout = TimeSpan.FromMilliseconds(500);
         private static readonly TimeSpan IosCpuWaitTimeout = TimeSpan.FromMilliseconds(16);
         private static readonly bool IosNvWaitPromotionEnabled =
             string.Equals(Environment.GetEnvironmentVariable("MELONX_IOS_NV_WAIT_PROMOTION"), "1", StringComparison.Ordinal);
@@ -45,6 +47,8 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
             string.Equals(Environment.GetEnvironmentVariable("MELONX_IOS_NV_WAIT_BLOCKING"), "1", StringComparison.Ordinal);
         private static readonly bool IosNvWaitTimeoutPromotionEnabled =
             string.Equals(Environment.GetEnvironmentVariable("MELONX_IOS_NV_WAIT_TIMEOUT_PROMOTION"), "1", StringComparison.Ordinal);
+        private static readonly bool IosSosCrashResilience =
+            string.Equals(Environment.GetEnvironmentVariable("MELONX_IOS_SOS_CRASH_RESILIENCE"), "1", StringComparison.Ordinal);
 
         public NvHostEvent(NvHostSyncpt syncpointManager, uint eventId, Horizon system)
         {
@@ -192,12 +196,49 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
                     {
                         if (IosNvWaitBlockingEnabled)
                         {
-                            bool blockingTimedOut = Fence.Wait(gpuContext, IosBlockingCpuWaitTimeout);
+                            // When crash resilience is active (Story of Seasons save-load), use a much
+                            // longer timeout and retry loop. The 120ms default is not enough for the M1 GPU
+                            // to finish processing during save data loading, causing premature syncpoint
+                            // promotion that desynchronizes GPU/CPU state and deadlocks the game.
+                            TimeSpan effectiveTimeout = IosSosCrashResilience
+                                ? IosCrashResilienceBlockingTimeout
+                                : IosBlockingCpuWaitTimeout;
+                            int maxRetries = IosSosCrashResilience ? IosCrashResilienceMaxRetries : 1;
 
-                            uint blockingUpdatedSyncpointValue = gpuContext.Synchronization.GetSyncpointValue(Fence.Id);
-                            bool blockingStillPending = blockingUpdatedSyncpointValue < Fence.Value;
+                            bool blockingTimedOut = false;
+                            uint blockingUpdatedSyncpointValue = currentSyncpointValue;
+                            bool blockingStillPending = true;
 
-                            if (blockingTimedOut)
+                            for (int retry = 0; retry < maxRetries; retry++)
+                            {
+                                blockingTimedOut = Fence.Wait(gpuContext, effectiveTimeout);
+                                blockingUpdatedSyncpointValue = gpuContext.Synchronization.GetSyncpointValue(Fence.Id);
+                                blockingStillPending = blockingUpdatedSyncpointValue < Fence.Value;
+
+                                if (!blockingStillPending)
+                                {
+                                    // GPU caught up — fence reached successfully.
+                                    break;
+                                }
+
+                                if (IosSosCrashResilience && retry < maxRetries - 1)
+                                {
+                                    uint retryRemaining = Fence.Value > blockingUpdatedSyncpointValue
+                                        ? Fence.Value - blockingUpdatedSyncpointValue
+                                        : 0;
+
+                                    Logger.Warning?.Print(
+                                        LogClass.ServiceNv,
+                                        $"MELONX_IOS_NV_WAIT_V8: crash resilience retry {retry + 1}/{maxRetries}, " +
+                                        $"still pending. syncpt={Fence.Id}, target={Fence.Value}, " +
+                                        $"current={blockingUpdatedSyncpointValue}, remaining={retryRemaining}");
+
+                                    // Brief yield to let GPU processing thread make progress.
+                                    Thread.Sleep(5);
+                                }
+                            }
+
+                            if (blockingTimedOut && blockingStillPending)
                             {
                                 uint timeoutRemainingDelta = Fence.Value > blockingUpdatedSyncpointValue
                                     ? Fence.Value - blockingUpdatedSyncpointValue
@@ -215,6 +256,13 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
                                     Logger.Warning?.Print(
                                         LogClass.ServiceNv,
                                         $"MELONX_IOS_NV_WAIT_V7: timeout promotion applied on iOS to avoid guest abort. syncpt={Fence.Id}, target={Fence.Value}, before={blockingUpdatedSyncpointValue}, after={promotedSyncpointValue}, promotedBy={timeoutRemainingDelta}");
+
+                                    // When crash resilience is active, do an additional brief wait after promotion
+                                    // to let in-flight GPU commands drain before the guest proceeds with CpuSet.
+                                    if (IosSosCrashResilience)
+                                    {
+                                        Thread.Sleep(10);
+                                    }
 
                                     ResetFailingState();
                                     ResetIosSmallDeltaStallState();
