@@ -307,6 +307,11 @@ class LaunchGameHandler: ObservableObject {
             return
         }
 
+        if config.memoryManagerMode != "SoftwarePageTable" {
+            config.memoryManagerMode = "SoftwarePageTable"
+            LogCapture.shared.logDiagnostic("Story of Seasons compatibility: forcing memory manager mode SoftwarePageTable")
+        }
+
         let normalizedArgs = Set(config.additionalArgs.map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() })
 
         if !normalizedArgs.contains("--backend-threading") {
