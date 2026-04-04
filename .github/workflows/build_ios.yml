@@ -105,14 +105,14 @@ jobs:
           zip -r9 MeloNX-Air5-Optimized.ipa Payload
 
       - name: Upload IPA Artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: MeloNX-Air5-Optimized
           path: MeloNX-Air5-Optimized.ipa
 
       - name: Upload Build Log Artifact
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: xcodebuild-log
           path: build/xcodebuild.log
