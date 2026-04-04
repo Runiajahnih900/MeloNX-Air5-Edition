@@ -307,12 +307,17 @@ class LaunchGameHandler: ObservableObject {
             return
         }
 
-        // Keep HostMapped mode for performance — crash resilience is handled in
-        // the emulator core (SVC Break + InvalidAccessHandler) instead of falling
-        // back to SoftwarePageTable.
-        LogCapture.shared.logDiagnostic("Story of Seasons compatibility: keeping memoryMode=\(config.memoryManagerMode) with iOS crash resilience")
+        // The HostMapped memory mode, even with GPU sync fixes, causes guest-side deadlocks
+        // during save-load `CpuSet()` operations where the guest thread blocks infinitely
+        // inside an internal mutex on MoltenVK/iOS. SoftwarePageTable handles memory mirroring
+        // during these loads more robustly.
+        if config.memoryManagerMode != "SoftwarePageTable" {
+            config.memoryManagerMode = "SoftwarePageTable"
+            LogCapture.shared.logDiagnostic("Story of Seasons compatibility: forcing memoryMode=SoftwarePageTable (overriding HostMapped)")
+        }
 
         // Signal to the C# backend that this title needs iOS save-load crash resilience
+        // (kept as defense-in-depth)
         setenv("MELONX_IOS_SOS_CRASH_RESILIENCE", "1", 1)
 
         let normalizedArgs = Set(config.additionalArgs.map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() })
