@@ -7,6 +7,9 @@
 
 import OSLog
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct ContentView: View {
     @StateObject var gameHandler = LaunchGameHandler()
@@ -17,6 +20,8 @@ struct ContentView: View {
     @State var showing = true
     @Binding var viewShown: Bool
     @State var date: Date?
+    @State private var pendingAppUpdate: LatestVersionResponse?
+    @State private var isShowingAppUpdateSheet = false
 
     @StateObject var nativeSettings: NativeSettingsManager = .shared
 
@@ -108,6 +113,8 @@ struct ContentView: View {
                     if nativeSettings.mainThreadWatchdog.value {
                         Watchdog.shared.start()
                     }
+
+                    await checkForLiveAppUpdateIfNeeded(forcePresentation: false)
                 }
             }
             .environmentObject(gameHandler)
@@ -158,6 +165,16 @@ struct ContentView: View {
             .onReceive(NotificationCenter.default.publisher(for: .init("URLOpened"))) { notif in
                 guard let url = notif.object as? URL else { return }
                 handleDeepLink(url)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .init("MeloNXCheckAppUpdateNow"))) { _ in
+                Task {
+                    await checkForLiveAppUpdateIfNeeded(forcePresentation: true)
+                }
+            }
+            .sheet(isPresented: $isShowingAppUpdateSheet) {
+                if let pendingAppUpdate {
+                    MeloNXUpdateSheet(updateInfo: pendingAppUpdate, isPresented: $isShowingAppUpdateSheet)
+                }
             }
             .if(gameHandler.shouldShowPopover) { view in
                 view.halfScreenSheet(isPresented: shouldShowPopoverBinding) {
@@ -230,6 +247,108 @@ struct ContentView: View {
             default:
                 return
             }
+        }
+    }
+
+    @MainActor
+    private func checkForLiveAppUpdateIfNeeded(forcePresentation: Bool) async {
+        let shouldCheckOnLaunch = nativeSettings.setting(forKey: "checkForUpdate", default: true).value
+
+        guard shouldCheckOnLaunch || forcePresentation else {
+            return
+        }
+
+        let repository = nativeSettings.setting(forKey: "liveUpdateRepository", default: "melonx/emu").value
+        let includePrerelease = nativeSettings.setting(forKey: "includePrereleaseUpdates", default: false).value
+
+        guard !repository.isEmpty else {
+            return
+        }
+
+        do {
+            guard let release = try await LiveUpdateChecker.fetchLatestRelease(repository: repository, includePrerelease: includePrerelease),
+                  let ipaAsset = release.assets.first(where: { $0.name.lowercased().hasSuffix(".ipa") }) else {
+                return
+            }
+
+            let releaseId = String(release.id)
+            let seenReleaseId = nativeSettings.setting(forKey: "lastSeenLiveUpdateReleaseId", default: "").value
+
+            if !forcePresentation && releaseId == seenReleaseId {
+                return
+            }
+
+            let updateInfo = LatestVersionResponse(
+                version_number: release.tagName,
+                version_number_stripped: release.tagName.filter { $0.isNumber },
+                changelog: release.body.isEmpty ? "No changelog provided." : release.body,
+                download_link: ipaAsset.browserDownloadURL
+            )
+
+            pendingAppUpdate = updateInfo
+            isShowingAppUpdateSheet = true
+            nativeSettings.setting(forKey: "lastSeenLiveUpdateReleaseId", default: "").value = releaseId
+
+            let shouldAutoOpen = nativeSettings.setting(forKey: "liveAutoOpenDownloadLink", default: false).value
+            if shouldAutoOpen,
+               let downloadURL = URL(string: ipaAsset.browserDownloadURL) {
+                await UIApplication.shared.open(downloadURL)
+            }
+
+            LogCapture.shared.logDiagnostic("Live update found: tag=\(release.tagName), asset=\(ipaAsset.name)")
+        } catch {
+            LogCapture.shared.logDiagnostic("Live update check failed: \(error)")
+        }
+    }
+}
+
+private enum LiveUpdateChecker {
+    struct Release: Decodable {
+        let id: Int
+        let tagName: String
+        let body: String
+        let draft: Bool
+        let prerelease: Bool
+        let assets: [Asset]
+
+        struct Asset: Decodable {
+            let name: String
+            let browserDownloadURL: String
+
+            enum CodingKeys: String, CodingKey {
+                case name
+                case browserDownloadURL = "browser_download_url"
+            }
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case tagName = "tag_name"
+            case body
+            case draft
+            case prerelease
+            case assets
+        }
+    }
+
+    static func fetchLatestRelease(repository: String, includePrerelease: Bool) async throws -> Release? {
+        guard let url = URL(string: "https://api.github.com/repos/\(repository)/releases?per_page=10") else {
+            return nil
+        }
+
+        var request = URLRequest(url: url)
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        request.setValue("MeloNX-iOS", forHTTPHeaderField: "User-Agent")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else {
+            return nil
+        }
+
+        let releases = try JSONDecoder().decode([Release].self, from: data)
+        return releases.first {
+            guard !$0.draft else { return false }
+            return includePrerelease || !$0.prerelease
         }
     }
 }

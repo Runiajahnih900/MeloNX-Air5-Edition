@@ -7,6 +7,9 @@
 
 
 import Foundation
+#if canImport(Network)
+import Network
+#endif
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -174,6 +177,8 @@ final class LogCapture: ObservableObject {
 
     private func appendToSessionLog(_ logLine: String) {
         fileIOQueue.async {
+            LiveLogStreamer.shared.send(logLine)
+
             guard let sessionFileHandle = self.sessionFileHandle,
                   let data = (logLine + "\n").data(using: .utf8) else {
                 return
@@ -371,3 +376,79 @@ final class LogCapture: ObservableObject {
         continuation?.finish()
     }
 }
+
+#if canImport(Network)
+private final class LiveLogStreamer {
+    static let shared = LiveLogStreamer()
+
+    private let queue = DispatchQueue(label: "com.melonx.live-log-stream")
+    private let formatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    private var connection: NWConnection?
+    private var endpointKey: String?
+
+    private init() {}
+
+    func send(_ message: String) {
+        queue.async {
+            guard UserDefaults.standard.bool(forKey: "liveLogStreamingEnabled") else {
+                self.resetConnection()
+                return
+            }
+
+            let host = UserDefaults.standard.string(forKey: "liveLogTargetHost")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if host.isEmpty {
+                self.resetConnection()
+                return
+            }
+
+            let storedPort = UserDefaults.standard.integer(forKey: "liveLogTargetPort")
+            let portValue = storedPort == 0 ? 19191 : storedPort
+
+            guard let port = NWEndpoint.Port(rawValue: UInt16(clamping: portValue)) else {
+                self.resetConnection()
+                return
+            }
+
+            self.ensureConnection(host: host, port: port)
+
+            let payload = "[\(self.formatter.string(from: Date()))] \(message)\n"
+            self.connection?.send(content: Data(payload.utf8), completion: .idempotent)
+        }
+    }
+
+    private func ensureConnection(host: String, port: NWEndpoint.Port) {
+        let key = "\(host):\(port.rawValue)"
+        guard endpointKey != key || connection == nil else {
+            return
+        }
+
+        resetConnection()
+
+        let endpointHost = NWEndpoint.Host(host)
+        let connection = NWConnection(host: endpointHost, port: port, using: .udp)
+        connection.stateUpdateHandler = { [weak self] state in
+            if case .failed = state {
+                self?.queue.async {
+                    self?.resetConnection()
+                }
+            }
+        }
+
+        connection.start(queue: queue)
+
+        self.connection = connection
+        endpointKey = key
+    }
+
+    private func resetConnection() {
+        connection?.cancel()
+        connection = nil
+        endpointKey = nil
+    }
+}
+#endif

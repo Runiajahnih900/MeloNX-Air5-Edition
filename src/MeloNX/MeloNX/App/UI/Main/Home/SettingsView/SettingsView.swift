@@ -41,6 +41,45 @@ struct SettingsViewNew: View {
     private var config: Binding<Ryujinx.Arguments> {
         $settingsManager.config
     }
+
+    private var liveLogHostBinding: Binding<String> {
+        Binding(
+            get: {
+                nativeSettingsManager.setting(forKey: "liveLogTargetHost", default: "").value
+            },
+            set: { newValue in
+                nativeSettingsManager.setting(forKey: "liveLogTargetHost", default: "").value = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        )
+    }
+
+    private var liveLogPortBinding: Binding<String> {
+        Binding(
+            get: {
+                let port = nativeSettingsManager.setting(forKey: "liveLogTargetPort", default: 19191).value
+                return String(port)
+            },
+            set: { newValue in
+                let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard let parsed = Int(trimmed), parsed > 0, parsed <= 65535 else {
+                    return
+                }
+
+                nativeSettingsManager.setting(forKey: "liveLogTargetPort", default: 19191).value = parsed
+            }
+        )
+    }
+
+    private var liveUpdateRepoBinding: Binding<String> {
+        Binding(
+            get: {
+                nativeSettingsManager.setting(forKey: "liveUpdateRepository", default: "melonx/emu").value
+            },
+            set: { newValue in
+                nativeSettingsManager.setting(forKey: "liveUpdateRepository", default: "melonx/emu").value = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        )
+    }
     
     private let memoryManagerModes = [
         ("HostMapped", "Host (fast)"),
@@ -1164,6 +1203,75 @@ struct SettingsViewNew: View {
                 Divider()
                 SettingsToggle(isOn: nativeSettingsManager.checkForUpdate(true).projectedValue, icon: "square.and.arrow.down", label: "Check for Updates", infoMessage: "Check for Updates on Launch")
                 Divider()
+
+                SettingsToggle(isOn: nativeSettingsManager.setting(forKey: "includePrereleaseUpdates", default: false).projectedValue, icon: "arrow.triangle.2.circlepath.circle", label: "Include Pre-release Updates", infoMessage: "When enabled, update checks can use pre-release builds from GitHub releases.")
+                Divider()
+
+                SettingsToggle(isOn: nativeSettingsManager.setting(forKey: "liveAutoOpenDownloadLink", default: false).projectedValue, icon: "link.badge.plus", label: "Auto Open Update Link", infoMessage: "Automatically opens the IPA download page when a new live build is found.")
+                Divider()
+
+                VStack(alignment: .leading, spacing: 8) {
+                    labelWithIcon("Live Update Repository", iconName: "shippingbox")
+                    TextField("owner/repo", text: liveUpdateRepoBinding)
+                        .font(.system(.body, design: .monospaced))
+                        .textFieldStyle(.roundedBorder)
+                        .textInputAutocapitalization(.none)
+                        .disableAutocorrection(true)
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 4)
+                Divider()
+
+                Button {
+                    NotificationCenter.default.post(name: .init("MeloNXCheckAppUpdateNow"), object: nil)
+                } label: {
+                    HStack {
+                        Image(systemName: "arrow.clockwise")
+                            .foregroundColor(.blue)
+                        Text("Check App Update Now")
+                            .foregroundColor(.primary)
+                        Spacer()
+                    }
+                    .padding(.vertical, 8)
+                }
+                .padding(.horizontal)
+                Divider()
+
+                SettingsToggle(isOn: nativeSettingsManager.setting(forKey: "liveLogStreamingEnabled", default: false).projectedValue, icon: "dot.radiowaves.left.and.right", label: "Live Log to PC", infoMessage: "Streams game logs in real-time to your PC over local network (UDP).")
+
+                if nativeSettingsManager.setting(forKey: "liveLogStreamingEnabled", default: false).value {
+                    Divider()
+                    VStack(alignment: .leading, spacing: 8) {
+                        labelWithIcon("PC Host", iconName: "desktopcomputer")
+                        TextField("192.168.1.100", text: liveLogHostBinding)
+                            .font(.system(.body, design: .monospaced))
+                            .textFieldStyle(.roundedBorder)
+                            .textInputAutocapitalization(.never)
+                            .disableAutocorrection(true)
+
+                        labelWithIcon("UDP Port", iconName: "network")
+                        TextField("19191", text: liveLogPortBinding)
+                            .font(.system(.body, design: .monospaced))
+                            .textFieldStyle(.roundedBorder)
+                            .keyboardType(.numberPad)
+
+                        Button {
+                            LogCapture.shared.logDiagnostic("Live log test ping from MeloNX iOS")
+                        } label: {
+                            HStack {
+                                Image(systemName: "antenna.radiowaves.left.and.right")
+                                    .foregroundColor(.blue)
+                                Text("Send Test Log Ping")
+                                    .foregroundColor(.primary)
+                                Spacer()
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 4)
+                    Divider()
+                }
                 
                 Button {
                     Ryujinx.clearShaderCache()
