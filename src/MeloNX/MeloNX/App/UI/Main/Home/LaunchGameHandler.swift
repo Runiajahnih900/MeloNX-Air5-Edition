@@ -307,10 +307,13 @@ class LaunchGameHandler: ObservableObject {
             return
         }
 
-        if config.memoryManagerMode != "SoftwarePageTable" {
-            config.memoryManagerMode = "SoftwarePageTable"
-            LogCapture.shared.logDiagnostic("Story of Seasons compatibility: forcing memory manager mode SoftwarePageTable")
-        }
+        // Keep HostMapped mode for performance — crash resilience is handled in
+        // the emulator core (SVC Break + InvalidAccessHandler) instead of falling
+        // back to SoftwarePageTable.
+        LogCapture.shared.logDiagnostic("Story of Seasons compatibility: keeping memoryMode=\(config.memoryManagerMode) with iOS crash resilience")
+
+        // Signal to the C# backend that this title needs iOS save-load crash resilience
+        setenv("MELONX_IOS_SOS_CRASH_RESILIENCE", "1", 1)
 
         let normalizedArgs = Set(config.additionalArgs.map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() })
 
