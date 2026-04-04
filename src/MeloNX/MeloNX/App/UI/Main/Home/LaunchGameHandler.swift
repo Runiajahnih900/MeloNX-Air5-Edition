@@ -23,6 +23,7 @@ class LaunchGameHandler: ObservableObject {
     private static let largeGameThresholdBytes: Int64 = 8_589_934_592 // 8 GiB
     private static let mediumGameThresholdBytes: Int64 = 4_294_967_296 // 4 GiB
     private static let lowMemoryDeviceThresholdBytes: UInt64 = 6_442_450_944 // 6 GiB
+    private static let standardMemoryDeviceThresholdBytes: UInt64 = 8_589_934_592 // 8 GiB
     
     private let ryujinx = Ryujinx.shared
     private let nativeSettings = NativeSettingsManager.shared
@@ -200,11 +201,30 @@ class LaunchGameHandler: ObservableObject {
             return
         }
 
+        let physicalMemory = ProcessInfo.processInfo.physicalMemory
         let gameSizeBytes = getGameFileSizeBytes(for: game)
         let isLargeGame = (gameSizeBytes ?? 0) >= Self.largeGameThresholdBytes
-        let isMediumGameOnLowMemoryDevice = (gameSizeBytes ?? 0) >= Self.mediumGameThresholdBytes && ProcessInfo.processInfo.physicalMemory <= Self.lowMemoryDeviceThresholdBytes
+        let isMediumGameOnLowMemoryDevice = (gameSizeBytes ?? 0) >= Self.mediumGameThresholdBytes && physicalMemory <= Self.lowMemoryDeviceThresholdBytes
 
-        guard isLargeGame || isMediumGameOnLowMemoryDevice else {
+        var triggers: [String] = []
+
+        if isLargeGame {
+            triggers.append("largeGame")
+        }
+
+        if isMediumGameOnLowMemoryDevice {
+            triggers.append("mediumGameOnLowMemoryDevice")
+        }
+
+        if config.expandRam && physicalMemory <= Self.standardMemoryDeviceThresholdBytes {
+            triggers.append("expandRamOn<=8GiBDevice")
+        }
+
+        if config.memoryManagerMode == "HostMappedUnsafe" && config.expandRam {
+            triggers.append("hostMappedUnsafe+expandRam")
+        }
+
+        guard !triggers.isEmpty else {
             return
         }
 
@@ -225,15 +245,15 @@ class LaunchGameHandler: ObservableObject {
             appliedAdjustments.append("enableDockedMode=false")
         }
 
-        if config.resscale > 0.75 {
+        if (isLargeGame || isMediumGameOnLowMemoryDevice) && config.resscale > 0.75 {
             config.resscale = 0.75
             appliedAdjustments.append("resolutionScale=0.75")
         }
 
         if !appliedAdjustments.isEmpty {
             let sizeGiB = gameSizeBytes.map { String(format: "%.2f", Double($0) / 1_073_741_824.0) } ?? "unknown"
-            print("[MeloNX] Large-game memory profile enabled (size=\(sizeGiB) GiB, physicalMemory=\(ProcessInfo.processInfo.physicalMemory) bytes): \(appliedAdjustments.joined(separator: ", "))")
-            LogCapture.shared.logDiagnostic("Large-game memory profile applied: sizeGiB=\(sizeGiB), crashForensics=\(crashForensicsMode), adjustments=\(appliedAdjustments.joined(separator: ","))")
+            print("[MeloNX] iOS memory safety profile enabled (size=\(sizeGiB) GiB, physicalMemory=\(physicalMemory) bytes, triggers=\(triggers.joined(separator: ","))): \(appliedAdjustments.joined(separator: ", "))")
+            LogCapture.shared.logDiagnostic("iOS memory safety profile applied: sizeGiB=\(sizeGiB), crashForensics=\(crashForensicsMode), triggers=\(triggers.joined(separator: ",")), adjustments=\(appliedAdjustments.joined(separator: ","))")
         }
     }
 
