@@ -20,6 +20,9 @@ class LaunchGameHandler: ObservableObject {
     static var succeededJIT: Bool = true
     
     private static let jitEntitlement = "com.apple.developer.kernel.increased-memory-limit"
+    private static let largeGameThresholdBytes: Int64 = 8_589_934_592 // 8 GiB
+    private static let mediumGameThresholdBytes: Int64 = 4_294_967_296 // 4 GiB
+    private static let lowMemoryDeviceThresholdBytes: UInt64 = 6_442_450_944 // 6 GiB
     
     private let ryujinx = Ryujinx.shared
     private let nativeSettings = NativeSettingsManager.shared
@@ -104,6 +107,7 @@ class LaunchGameHandler: ObservableObject {
 
         LogCapture.shared.startGameSessionLog(gameTitle: currentGame.titleName, titleId: currentGame.titleId)
         LogCapture.shared.logDiagnostic("Launch stage: session log started")
+        LogCapture.shared.logDiagnostic("MELONX_IOS_LIFECYCLE_V10_ACTIVE: session instrumentation enabled")
         
         persettings.loadSettings()
         LogCapture.shared.logDiagnostic("Launch stage: per-game settings loaded")
@@ -111,18 +115,11 @@ class LaunchGameHandler: ObservableObject {
         var config = persettings.config[currentGame.titleId] ?? self.config
 
         let crashForensicsMode = nativeSettings.setting(forKey: "crashForensicsMode", default: true).value
-        let eastwardSceneForensicsMode = nativeSettings.setting(forKey: "eastwardSceneForensicsMode", default: false).value
         let allowUnsafeVerboseLogs = nativeSettings.setting(forKey: "allowUnsafeVerboseLogs", default: false).value
         let allowStubLogs = nativeSettings.setting(forKey: "allowStubLogs", default: false).value
-        LogCapture.shared.logDiagnostic("Forensics toggles: crashForensics=\(crashForensicsMode), eastwardSceneForensics=\(eastwardSceneForensicsMode), allowStubLogs=\(allowStubLogs), allowUnsafeVerboseLogs=\(allowUnsafeVerboseLogs)")
+        LogCapture.shared.logDiagnostic("Forensics toggles: crashForensics=\(crashForensicsMode), allowStubLogs=\(allowStubLogs), allowUnsafeVerboseLogs=\(allowUnsafeVerboseLogs)")
 
-        if eastwardSceneForensicsMode {
-            config.debuglogs = true
-            config.tracelogs = false
-            LogCapture.shared.logDiagnostic("Eastward scene forensics mode enabled: forcing debugLogs=true and traceLogs=false")
-        }
-
-        if !ProcessInfo.processInfo.isiOSAppOnMac && !allowUnsafeVerboseLogs && !eastwardSceneForensicsMode {
+        if !ProcessInfo.processInfo.isiOSAppOnMac && !allowUnsafeVerboseLogs {
             if config.tracelogs || config.debuglogs {
                 print("[MeloNX] Verbose logs (trace/debug) disabled on iOS for stability. Set 'allowUnsafeVerboseLogs' to true to override.")
             }
@@ -131,135 +128,7 @@ class LaunchGameHandler: ObservableObject {
             config.debuglogs = false
         }
 
-        if !ProcessInfo.processInfo.isiOSAppOnMac {
-            let normalizedTitleId = currentGame.titleId.lowercased()
-            if normalizedTitleId == "010071b00f63a000" {
-                let targetMemoryMode = "HostMapped"
-                if config.memoryManagerMode != targetMemoryMode {
-                    print("[MeloNX] Eastward compatibility profile: memory mode \(config.memoryManagerMode) -> \(targetMemoryMode)")
-                    config.memoryManagerMode = targetMemoryMode
-                }
-
-                if config.expandRam {
-                    print("[MeloNX] Eastward stability profile: disabling Expand Guest RAM")
-                    config.expandRam = false
-                }
-
-                if !config.disablePTC {
-                    print("[MeloNX] Eastward stability profile: disabling PTC")
-                    config.disablePTC = true
-                }
-
-                if config.ignoreMissingServices {
-                    print("[MeloNX] Eastward stability profile: disabling Ignore Missing Services")
-                    config.ignoreMissingServices = false
-                }
-
-                if !config.macroHLE {
-                    print("[MeloNX] Eastward compatibility profile: enabling Macro HLE")
-                    config.macroHLE = true
-                }
-
-                if config.enableDockedMode {
-                    print("[MeloNX] Eastward compatibility profile: disabling Docked Mode (handheld) to reduce GPU load")
-                    config.enableDockedMode = false
-                    LogCapture.shared.logDiagnostic("Eastward compatibility: forcing handheld mode to reduce GPU load")
-                }
-
-                if config.resscale != 0.5 {
-                    print("[MeloNX] Eastward compatibility profile: lowering resolution scale to 0.5")
-                    config.resscale = 0.5
-                    LogCapture.shared.logDiagnostic("Eastward compatibility: forcing resolution scale 0.5 for GPU-load isolation")
-                }
-
-                if !config.enableShaderCache {
-                    print("[MeloNX] Eastward compatibility profile: enabling Shader Cache for iOS post-fix profile")
-                    config.enableShaderCache = true
-                    LogCapture.shared.logDiagnostic("Eastward compatibility: forcing config.enableShaderCache=true for iOS post-fix profile")
-                }
-
-                let hadManualDisableShaderCacheArg = config.additionalArgs.contains {
-                    $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--disable-shader-cache"
-                }
-
-                if hadManualDisableShaderCacheArg {
-                    config.additionalArgs.removeAll {
-                        $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--disable-shader-cache"
-                    }
-                    LogCapture.shared.logDiagnostic("Eastward compatibility: removed --disable-shader-cache for iOS post-fix profile")
-                }
-
-                if let backendThreadingIndex = config.additionalArgs.firstIndex(where: {
-                    $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--backend-threading"
-                }) {
-                    if backendThreadingIndex + 1 < config.additionalArgs.count {
-                        config.additionalArgs.remove(at: backendThreadingIndex + 1)
-                    }
-
-                    config.additionalArgs.remove(at: backendThreadingIndex)
-
-                    LogCapture.shared.logDiagnostic("Eastward compatibility: removed manual --backend-threading override (using runtime default/Auto)")
-                }
-
-                let hadForceDummyAudioArg = config.additionalArgs.contains {
-                    $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--force-dummy-audio"
-                }
-
-                if hadForceDummyAudioArg {
-                    config.additionalArgs.removeAll {
-                        $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--force-dummy-audio"
-                    }
-
-                    LogCapture.shared.logDiagnostic("Eastward compatibility: removed --force-dummy-audio for iOS post-fix profile")
-                }
-
-                while let graphicsBackendIndex = config.additionalArgs.firstIndex(where: {
-                    $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--graphics-backend"
-                }) {
-                    if graphicsBackendIndex + 1 < config.additionalArgs.count {
-                        config.additionalArgs.remove(at: graphicsBackendIndex + 1)
-                    }
-
-                    config.additionalArgs.remove(at: graphicsBackendIndex)
-                }
-                LogCapture.shared.logDiagnostic("Eastward compatibility: removed manual graphics-backend override (OpenGL is unsupported on iOS and falls back to Vulkan)")
-
-                if eastwardSceneForensicsMode {
-                    config.additionalArgs.removeAll {
-                        $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--disable-guest-logs"
-                    }
-
-                    if allowStubLogs {
-                        config.additionalArgs.removeAll {
-                            $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--disable-stub-logs"
-                        }
-                        LogCapture.shared.logDiagnostic("Eastward forensics active: guest logs enabled, stub logs enabled by user override")
-                    } else {
-                        config.additionalArgs.removeAll {
-                            $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--disable-stub-logs"
-                        }
-                        config.additionalArgs.append("--disable-stub-logs")
-                        LogCapture.shared.logDiagnostic("Eastward forensics active: guest logs enabled, stub logs disabled to reduce scene-stall log flood")
-                    }
-                } else {
-                    if !config.additionalArgs.contains(where: {
-                        $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--disable-guest-logs"
-                    }) {
-                        config.additionalArgs.append("--disable-guest-logs")
-                    }
-
-                    if !config.additionalArgs.contains(where: {
-                        $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "--disable-stub-logs"
-                    }) {
-                        config.additionalArgs.append("--disable-stub-logs")
-                    }
-
-                    if crashForensicsMode {
-                        LogCapture.shared.logDiagnostic("Eastward stability mode active: guest/stub logs disabled by default. Enable Eastward Scene Forensics to capture scene-level guest logs.")
-                    }
-                }
-            }
-        }
+        applyLargeGameMemoryProfileIfNeeded(for: currentGame, config: &config, crashForensicsMode: crashForensicsMode)
 
         if config.hypervisor && !(ProcessInfo.processInfo.isiOSAppOnMac || checkAppEntitlement("com.apple.private.hypervisor")) {
             config.hypervisor = false
@@ -296,13 +165,7 @@ class LaunchGameHandler: ObservableObject {
             useDualMappedJIT = nativeSettings.setting(forKey: "DUAL_MAPPED_JIT", default: false).value
         }
 
-        if !ProcessInfo.processInfo.isiOSAppOnMac,
-           currentGame?.titleId.lowercased() == "010071b00f63a000" {
-            useDualMappedJIT = false
-            LogCapture.shared.logDiagnostic("Eastward compatibility: forcing non-dualmapped JIT for stability isolation")
-        }
-
-                LogCapture.shared.logDiagnostic("Env setup: requested DualMappedJIT=\(useDualMappedJIT)")
+        LogCapture.shared.logDiagnostic("Env setup: requested DualMappedJIT=\(useDualMappedJIT)")
         
         if useDualMappedJIT {
             setenv("DUAL_MAPPED_JIT", "1", 1)
@@ -330,5 +193,69 @@ class LaunchGameHandler: ObservableObject {
 
         setenv("MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS", useMetalArgumentBuffers ? "1" : "0", 1)
         LogCapture.shared.logDiagnostic("Env setup: device=\(device.name), argumentBuffersTier2=\(supportsArgumentBuffersTier2), usingArgumentBuffers=\(useMetalArgumentBuffers)")
+    }
+
+    private func applyLargeGameMemoryProfileIfNeeded(for game: Game, config: inout Ryujinx.Arguments, crashForensicsMode: Bool) {
+        guard !ProcessInfo.processInfo.isiOSAppOnMac else {
+            return
+        }
+
+        let gameSizeBytes = getGameFileSizeBytes(for: game)
+        let isLargeGame = (gameSizeBytes ?? 0) >= Self.largeGameThresholdBytes
+        let isMediumGameOnLowMemoryDevice = (gameSizeBytes ?? 0) >= Self.mediumGameThresholdBytes && ProcessInfo.processInfo.physicalMemory <= Self.lowMemoryDeviceThresholdBytes
+
+        guard isLargeGame || isMediumGameOnLowMemoryDevice else {
+            return
+        }
+
+        var appliedAdjustments: [String] = []
+
+        if config.memoryManagerMode == "HostMappedUnsafe" {
+            config.memoryManagerMode = "HostMapped"
+            appliedAdjustments.append("memoryManagerMode=HostMapped")
+        }
+
+        if config.expandRam {
+            config.expandRam = false
+            appliedAdjustments.append("expandRam=false")
+        }
+
+        if config.enableDockedMode {
+            config.enableDockedMode = false
+            appliedAdjustments.append("enableDockedMode=false")
+        }
+
+        if config.resscale > 0.75 {
+            config.resscale = 0.75
+            appliedAdjustments.append("resolutionScale=0.75")
+        }
+
+        if !appliedAdjustments.isEmpty {
+            let sizeGiB = gameSizeBytes.map { String(format: "%.2f", Double($0) / 1_073_741_824.0) } ?? "unknown"
+            print("[MeloNX] Large-game memory profile enabled (size=\(sizeGiB) GiB, physicalMemory=\(ProcessInfo.processInfo.physicalMemory) bytes): \(appliedAdjustments.joined(separator: ", "))")
+            LogCapture.shared.logDiagnostic("Large-game memory profile applied: sizeGiB=\(sizeGiB), crashForensics=\(crashForensicsMode), adjustments=\(appliedAdjustments.joined(separator: ","))")
+        }
+    }
+
+    private func getGameFileSizeBytes(for game: Game) -> Int64? {
+        let keys: Set<URLResourceKey> = [.totalFileAllocatedSizeKey, .fileAllocatedSizeKey, .fileSizeKey]
+
+        guard let values = try? game.fileURL.resourceValues(forKeys: keys) else {
+            return nil
+        }
+
+        if let totalAllocated = values.totalFileAllocatedSize {
+            return Int64(totalAllocated)
+        }
+
+        if let allocated = values.fileAllocatedSize {
+            return Int64(allocated)
+        }
+
+        if let fileSize = values.fileSize {
+            return Int64(fileSize)
+        }
+
+        return nil
     }
 }

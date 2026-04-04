@@ -41,7 +41,6 @@ namespace Ryujinx.HLE.HOS
         private const string AmsNsoPatchDir = "exefs_patches";
         private const string AmsNroPatchDir = "nro_patches";
         private const string AmsKipPatchDir = "kip_patches";
-        private const ulong EastwardTitleIdBase = 0x010071B00F63A000UL;
 
         private static readonly ModMetadataJsonSerializerContext _serializerContext = new(JsonHelper.GetDefaultSerializerOptions());
 
@@ -478,12 +477,6 @@ namespace Ryujinx.HLE.HOS
 
         internal IStorage ApplyRomFsMods(ulong applicationId, IStorage baseStorage)
         {
-            if (ShouldDisableModInjection(applicationId))
-            {
-                Logger.Warning?.Print(LogClass.ModLoader, $"Eastward iOS compatibility: skipping RomFS mod injection for Application {applicationId:X16}");
-                return baseStorage;
-            }
-
             if (!_appMods.TryGetValue(applicationId, out ModCache mods) || mods.RomfsDirs.Count + mods.RomfsContainers.Count == 0)
             {
                 return baseStorage;
@@ -578,12 +571,6 @@ namespace Ryujinx.HLE.HOS
 
         internal bool ReplaceExefsPartition(ulong applicationId, ref IFileSystem exefs)
         {
-            if (ShouldDisableModInjection(applicationId))
-            {
-                Logger.Warning?.Print(LogClass.ModLoader, $"Eastward iOS compatibility: skipping ExeFS partition replacement for Application {applicationId:X16}");
-                return false;
-            }
-
             if (!_appMods.TryGetValue(applicationId, out ModCache mods) || mods.ExefsContainers.Count == 0)
             {
                 return false;
@@ -621,12 +608,6 @@ namespace Ryujinx.HLE.HOS
                 Replaces = new BitVector32(),
                 Hash = null,
             };
-
-            if (ShouldDisableModInjection(applicationId))
-            {
-                Logger.Warning?.Print(LogClass.ModLoader, $"Eastward iOS compatibility: skipping ExeFS mod injection for Application {applicationId:X16}");
-                return modLoadResult;
-            }
 
             string tempHash = string.Empty;
 
@@ -730,12 +711,6 @@ namespace Ryujinx.HLE.HOS
 
         internal bool ApplyNsoPatches(ulong applicationId, params IExecutable[] programs)
         {
-            if (ShouldDisableModInjection(applicationId))
-            {
-                Logger.Warning?.Print(LogClass.ModLoader, $"Eastward iOS compatibility: skipping NSO patches for Application {applicationId:X16}");
-                return false;
-            }
-
             IEnumerable<Mod<DirectoryInfo>> nsoMods = _patches.NsoPatches;
 
             if (_appMods.TryGetValue(applicationId, out ModCache mods))
@@ -750,12 +725,6 @@ namespace Ryujinx.HLE.HOS
 
         internal void LoadCheats(ulong applicationId, ProcessTamperInfo tamperInfo, TamperMachine tamperMachine)
         {
-            if (ShouldDisableModInjection(applicationId))
-            {
-                Logger.Warning?.Print(LogClass.ModLoader, $"Eastward iOS compatibility: skipping cheat injection for Application {applicationId:X16}");
-                return;
-            }
-
             if (tamperInfo?.BuildIds == null || tamperInfo.CodeAddresses == null)
             {
                 Logger.Error?.Print(LogClass.ModLoader, "Unable to install cheat because the associated process is invalid");
@@ -806,13 +775,6 @@ namespace Ryujinx.HLE.HOS
 
             tamperMachine.EnableCheats(enabledCheats);
 
-        }
-
-        private static bool ShouldDisableModInjection(ulong applicationId)
-        {
-            ulong normalizedTitleId = applicationId & ~0xFul;
-
-            return normalizedTitleId == EastwardTitleIdBase;
         }
 
         private static bool ApplyProgramPatches(IEnumerable<Mod<DirectoryInfo>> mods, int protectedOffset, params IExecutable[] programs)
