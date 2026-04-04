@@ -36,6 +36,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
         private const uint FailingCountMax = 2;
         private const uint IosSkipCpuWaitDeltaThreshold = 2;
         private const uint IosSmallDeltaForceSuccessThreshold = 2;
+        private static readonly TimeSpan IosBlockingCpuWaitTimeout = TimeSpan.FromMilliseconds(120);
         private static readonly TimeSpan IosCpuWaitTimeout = TimeSpan.FromMilliseconds(16);
         private static readonly bool IosNvWaitPromotionEnabled =
             string.Equals(Environment.GetEnvironmentVariable("MELONX_IOS_NV_WAIT_PROMOTION"), "1", StringComparison.Ordinal);
@@ -188,18 +189,30 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
                     {
                         if (IosNvWaitBlockingEnabled)
                         {
-                            Fence.Wait(gpuContext, Timeout.InfiniteTimeSpan);
+                            bool blockingSignaled = Fence.Wait(gpuContext, IosBlockingCpuWaitTimeout);
 
                             uint blockingUpdatedSyncpointValue = gpuContext.Synchronization.GetSyncpointValue(Fence.Id);
 
+                            if (blockingSignaled)
+                            {
+                                Logger.Warning?.Print(
+                                    LogClass.ServiceNv,
+                                    $"MELONX_IOS_NV_WAIT_V6: blocking CPU wait enabled on iOS, waited until fence signal. syncpt={Fence.Id}, target={Fence.Value}, current={blockingUpdatedSyncpointValue}");
+
+                                ResetFailingState();
+                                ResetIosSmallDeltaStallState();
+
+                                return false;
+                            }
+
                             Logger.Warning?.Print(
                                 LogClass.ServiceNv,
-                                $"MELONX_IOS_NV_WAIT_V6: blocking CPU wait enabled on iOS, waited until fence signal. syncpt={Fence.Id}, target={Fence.Value}, current={blockingUpdatedSyncpointValue}");
+                                $"MELONX_IOS_NV_WAIT_V6: blocking CPU wait timed out after {IosBlockingCpuWaitTimeout.TotalMilliseconds}ms, continuing with TryAgain to avoid deadlock. syncpt={Fence.Id}, target={Fence.Value}, current={blockingUpdatedSyncpointValue}");
 
                             ResetFailingState();
                             ResetIosSmallDeltaStallState();
 
-                            return false;
+                            return true;
                         }
 
                         if (IosNvWaitPromotionEnabled && remainingSyncpointDelta <= IosSkipCpuWaitDeltaThreshold)
