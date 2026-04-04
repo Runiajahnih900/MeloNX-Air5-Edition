@@ -14,6 +14,8 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
     {
         public const int EventsCount = 64;
         private const uint IosEventWaitSmallDeltaThreshold = 2;
+        private static readonly bool IosEnableEventWaitSyncpointPromotion =
+            string.Equals(Environment.GetEnvironmentVariable("MELONX_IOS_EVENTWAIT_V6"), "1", StringComparison.Ordinal);
 
         private readonly bool _isProductionMode;
         private readonly Switch _device;
@@ -358,7 +360,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
                 return NvInternalResult.TryAgain;
             }
 
-            if (OperatingSystem.IsIOS())
+            if (OperatingSystem.IsIOS() && IosEnableEventWaitSyncpointPromotion)
             {
                 uint remainingSyncpointDelta = fence.Value > newCachedSyncpointValue ? fence.Value - newCachedSyncpointValue : 0;
 
