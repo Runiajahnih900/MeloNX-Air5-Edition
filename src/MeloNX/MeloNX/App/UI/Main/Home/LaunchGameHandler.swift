@@ -24,6 +24,7 @@ class LaunchGameHandler: ObservableObject {
     private static let mediumGameThresholdBytes: Int64 = 4_294_967_296 // 4 GiB
     private static let lowMemoryDeviceThresholdBytes: UInt64 = 6_442_450_944 // 6 GiB
     private static let standardMemoryDeviceThresholdBytes: UInt64 = 8_589_934_592 // 8 GiB
+    private static let storyOfSeasonsTitleId = "0100ed400eec2000"
     
     private let ryujinx = Ryujinx.shared
     private let nativeSettings = NativeSettingsManager.shared
@@ -159,6 +160,8 @@ class LaunchGameHandler: ObservableObject {
     }
     
     private func configureEnvironmentVariables(for config: Ryujinx.Arguments) {
+        LogCapture.shared.logDiagnostic("MELONX_IOS_SAVELOAD_V1_ACTIVE: Story of Seasons compatibility profile available")
+
         let enableEventWaitPromotion = nativeSettings.setting(forKey: "iosEventWaitPromotionFallback", default: false).value
         let enableNvWaitPromotion = nativeSettings.setting(forKey: "iosNvWaitPromotionFallback", default: false).value
 
@@ -172,6 +175,12 @@ class LaunchGameHandler: ObservableObject {
             useDualMappedJIT = nativeSettings.setting(forKey: "DUAL_MAPPED_JIT", default: true).value
         } else {
             useDualMappedJIT = nativeSettings.setting(forKey: "DUAL_MAPPED_JIT", default: false).value
+        }
+
+        let activeTitleId = currentGame?.titleId.lowercased() ?? ""
+        if activeTitleId == Self.storyOfSeasonsTitleId && !ProcessInfo.processInfo.isiOSAppOnMac && !useDualMappedJIT {
+            useDualMappedJIT = true
+            LogCapture.shared.logDiagnostic("Env setup: forcing DualMappedJIT for Story of Seasons iOS load-save compatibility")
         }
 
         LogCapture.shared.logDiagnostic("Env setup: requested DualMappedJIT=\(useDualMappedJIT)")
