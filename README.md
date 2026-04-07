@@ -23,6 +23,15 @@
 #### **Do I need a Switch to use this emulator?**
 MeloNX emulator is capable of running many homebrew applications, and can be a crucial tool in the development and debugging of homebrew applications and games. To play commercial games, you will need access to a Switch compatible with custom firmware (CFW), which will enable you to dump your system firmware, keys and legally purchased games.
 
+#### **Can MeloNX use frame generation / frame interpolation for smoother performance?**
+Not currently. Frame generation/interpolation is not implemented in MeloNX at this time.
+
+For better frame-time stability, use built-in settings first:
+- Keep **VSync** enabled (default)
+- Lower **Resolution Scale** for heavier games
+- Keep **Shader Cache** enabled on devices with enough RAM
+- Disable **Docked Mode** if you need more performance
+
 #### **How can I dump my firmware/games/keys?**
 First, you need to hack your Nintendo Switch, which you can learn how to do here: [https://nh-server.github.io/switch-guide/](https://nh-server.github.io/switch-guide/).
 
