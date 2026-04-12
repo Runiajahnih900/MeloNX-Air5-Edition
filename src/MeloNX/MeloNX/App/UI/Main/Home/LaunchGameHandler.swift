@@ -25,6 +25,7 @@ class LaunchGameHandler: ObservableObject {
     private static let crashResilienceGameThresholdBytes: Int64 = 4_294_967_296 // 4 GiB
     private static let lowMemoryDeviceThresholdBytes: UInt64 = 6_442_450_944 // 6 GiB
     private static let standardMemoryDeviceThresholdBytes: UInt64 = 8_589_934_592 // 8 GiB
+    private static let storyOfSeasonsTitleId = "0100ed400eec2000"
     
     private let ryujinx = Ryujinx.shared
     private let nativeSettings = NativeSettingsManager.shared
@@ -166,21 +167,27 @@ class LaunchGameHandler: ObservableObject {
         let enableEventWaitPromotion = nativeSettings.setting(forKey: "iosEventWaitPromotionFallback", default: false).value
         let enableNvWaitPromotion = nativeSettings.setting(forKey: "iosNvWaitPromotionFallback", default: false).value
         let activeTitleId = currentGame?.titleId.lowercased() ?? ""
+        let isStoryOfSeasons = activeTitleId == Self.storyOfSeasonsTitleId
         let genericCrashResilienceEnabled = shouldEnableGeneralCrashResilience(for: currentGame)
         let lowMemoryFallbackEnabled = ProcessInfo.processInfo.physicalMemory <= Self.lowMemoryDeviceThresholdBytes
-        let enableNvWaitBlocking = !ProcessInfo.processInfo.isiOSAppOnMac && (genericCrashResilienceEnabled || lowMemoryFallbackEnabled)
-        let enableNvWaitTimeoutPromotion = !ProcessInfo.processInfo.isiOSAppOnMac && (genericCrashResilienceEnabled || lowMemoryFallbackEnabled)
+
+        // Hybrid strategy:
+        // - keep generalized profile for broad compatibility
+        // - hard-enable SOS safeguards because this title is consistently load/save fragile on iOS
+        let crashResilienceEnabled = genericCrashResilienceEnabled || isStoryOfSeasons
+        let enableNvWaitBlocking = !ProcessInfo.processInfo.isiOSAppOnMac && (crashResilienceEnabled || lowMemoryFallbackEnabled)
+        let enableNvWaitTimeoutPromotion = !ProcessInfo.processInfo.isiOSAppOnMac && (crashResilienceEnabled || lowMemoryFallbackEnabled)
 
         setenv("MELONX_IOS_EVENTWAIT_PROMOTION", enableEventWaitPromotion ? "1" : "0", 1)
         setenv("MELONX_IOS_NV_WAIT_PROMOTION", enableNvWaitPromotion ? "1" : "0", 1)
         setenv("MELONX_IOS_NV_WAIT_BLOCKING", enableNvWaitBlocking ? "1" : "0", 1)
         setenv("MELONX_IOS_NV_WAIT_TIMEOUT_PROMOTION", enableNvWaitTimeoutPromotion ? "1" : "0", 1)
-        let crashResilienceEnvValue = genericCrashResilienceEnabled ? "1" : "0"
+        let crashResilienceEnvValue = crashResilienceEnabled ? "1" : "0"
         setenv("MELONX_IOS_CRASH_RESILIENCE", crashResilienceEnvValue, 1)
         // Backward-compat bridge for older cores still expecting legacy key.
         setenv("MELONX_IOS_SOS_CRASH_RESILIENCE", crashResilienceEnvValue, 1)
 
-        LogCapture.shared.logDiagnostic("Env setup: titleId=\(activeTitleId), iosEventWaitPromotionFallback=\(enableEventWaitPromotion), iosNvWaitPromotionFallback=\(enableNvWaitPromotion), iosNvWaitBlocking=\(enableNvWaitBlocking), iosNvWaitTimeoutPromotion=\(enableNvWaitTimeoutPromotion), crashResilience=\(genericCrashResilienceEnabled), lowMemoryFallback=\(lowMemoryFallbackEnabled)")
+        LogCapture.shared.logDiagnostic("Env setup: titleId=\(activeTitleId), isSOS=\(isStoryOfSeasons), iosEventWaitPromotionFallback=\(enableEventWaitPromotion), iosNvWaitPromotionFallback=\(enableNvWaitPromotion), iosNvWaitBlocking=\(enableNvWaitBlocking), iosNvWaitTimeoutPromotion=\(enableNvWaitTimeoutPromotion), crashResilience=\(crashResilienceEnabled), lowMemoryFallback=\(lowMemoryFallbackEnabled)")
 
         var useDualMappedJIT: Bool
         if #available(iOS 19, *) {
@@ -330,13 +337,17 @@ class LaunchGameHandler: ObservableObject {
             adjustments.append("memoryMode=HostMapped")
         }
 
+        let activeTitleId = game.titleId.lowercased()
+        let isStoryOfSeasons = activeTitleId == Self.storyOfSeasonsTitleId
+
         // Keep backend threading conservative to reduce race-related stalls on mobile iOS GPUs.
+        // For SOS this is treated as hard override.
         let normalizedArgs = config.additionalArgs
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
 
         if let backendIndex = normalizedArgs.firstIndex(of: "--backend-threading") {
             if backendIndex + 1 < config.additionalArgs.count,
-               config.additionalArgs[backendIndex + 1].lowercased() != "off" {
+               (config.additionalArgs[backendIndex + 1].lowercased() != "off" || isStoryOfSeasons) {
                 config.additionalArgs[backendIndex + 1] = "Off"
                 adjustments.append("backendThreading=Off")
             }
@@ -344,6 +355,11 @@ class LaunchGameHandler: ObservableObject {
             config.additionalArgs.append("--backend-threading")
             config.additionalArgs.append("Off")
             adjustments.append("backendThreading=Off")
+        }
+
+        if isStoryOfSeasons, config.memoryManagerMode != "SoftwarePageTable" {
+            config.memoryManagerMode = "SoftwarePageTable"
+            adjustments.append("memoryMode=SoftwarePageTable(SOS)")
         }
 
         if !adjustments.isEmpty {
