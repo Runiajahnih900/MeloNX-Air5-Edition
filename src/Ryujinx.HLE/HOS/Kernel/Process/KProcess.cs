@@ -1076,32 +1076,53 @@ namespace Ryujinx.HLE.HOS.Kernel.Process
             (string.Equals(Environment.GetEnvironmentVariable("MELONX_IOS_CRASH_RESILIENCE"), "1", StringComparison.Ordinal) ||
              string.Equals(Environment.GetEnvironmentVariable("MELONX_IOS_SOS_CRASH_RESILIENCE"), "1", StringComparison.Ordinal));
 
-        private static readonly string _iosInvalidAccessResilienceEnv =
-            Environment.GetEnvironmentVariable("MELONX_IOS_INVALID_ACCESS_RESILIENCE");
+        // Keep this dynamic (not static-cached) because the iOS launcher can change
+        // MELONX_IOS_INVALID_ACCESS_RESILIENCE per-title before each game starts.
+        // If we cache once at type initialization, Ori WotW can inherit stale value=1
+        // from a previous title and keep looping while spamming giant logs.
+        private static bool IsIosInvalidAccessResilienceEnabled()
+        {
+            if (!OperatingSystem.IsIOS())
+            {
+                return false;
+            }
 
-        private static readonly bool _iosInvalidAccessResilience =
-            OperatingSystem.IsIOS() &&
-            (
-                string.Equals(_iosInvalidAccessResilienceEnv, "1", StringComparison.Ordinal) ||
-                (_iosInvalidAccessResilienceEnv is null && _iosCrashResilience)
-            );
+            string envValue = Environment.GetEnvironmentVariable("MELONX_IOS_INVALID_ACCESS_RESILIENCE");
+
+            return string.Equals(envValue, "1", StringComparison.Ordinal) ||
+                   (envValue is null && _iosCrashResilience);
+        }
+
+        private static long _lastInvalidAccessResilienceWarnTicks;
+        private const long InvalidAccessResilienceWarnIntervalTicks = TimeSpan.TicksPerSecond;
 
         private bool InvalidAccessHandler(ulong va)
         {
-            KernelStatic.GetCurrentThread()?.PrintGuestStackTrace();
-            KernelStatic.GetCurrentThread()?.PrintGuestRegisterPrintout();
+            bool iosInvalidAccessResilience = IsIosInvalidAccessResilienceEnabled();
 
             // On iOS with crash resilience enabled, tolerate null-pointer and very low
             // address accesses that may occur during fragile save/load transitions on some games.
             // Returning true tells the memory manager to provide zeroed memory instead of faulting,
             // which lets the game's error handling recover gracefully.
-            if (_iosInvalidAccessResilience && va < 0x10000)
+            if (iosInvalidAccessResilience && va < 0x10000)
             {
-                Logger.Warning?.Print(LogClass.Cpu,
-                    $"MELONX_IOS_INVALID_ACCESS_RESILIENCE: Tolerating invalid memory access at VA 0x{va:X16} on iOS. Returning zeroed memory.");
+                // Avoid flooding logs with full guest dump loops when a title repeatedly touches
+                // the same invalid address in tight loops.
+                long nowTicks = DateTime.UtcNow.Ticks;
+                long previousTicks = Interlocked.Read(ref _lastInvalidAccessResilienceWarnTicks);
+
+                if (nowTicks - previousTicks >= InvalidAccessResilienceWarnIntervalTicks &&
+                    Interlocked.CompareExchange(ref _lastInvalidAccessResilienceWarnTicks, nowTicks, previousTicks) == previousTicks)
+                {
+                    Logger.Warning?.Print(LogClass.Cpu,
+                        $"MELONX_IOS_INVALID_ACCESS_RESILIENCE: Tolerating invalid memory access at VA 0x{va:X16} on iOS. Returning zeroed memory.");
+                }
 
                 return true;
             }
+
+            KernelStatic.GetCurrentThread()?.PrintGuestStackTrace();
+            KernelStatic.GetCurrentThread()?.PrintGuestRegisterPrintout();
 
             Logger.Error?.Print(LogClass.Cpu, $"Invalid memory access at virtual address 0x{va:X16}.");
 
