@@ -415,6 +415,18 @@ class LaunchGameHandler: ObservableObject {
                 config.macroHLE = true
                 adjustments.append("macroHLE=true(Garden/ORI)")
             }
+
+            // Conservative startup path for fragile Godot/Unity boots on iOS:
+            // avoid carrying translation/shader cache state across launches.
+            if !config.disablePTC {
+                config.disablePTC = true
+                adjustments.append("disablePTC=true(Garden/ORI)")
+            }
+
+            if config.enableShaderCache {
+                config.enableShaderCache = false
+                adjustments.append("shaderCache=false(Garden/ORI)")
+            }
         }
 
         if !adjustments.isEmpty {
