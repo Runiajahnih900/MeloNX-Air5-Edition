@@ -49,7 +49,7 @@ class ROMFolderManager: ObservableObject {
             return false
         }
 
-        let options: URL.BookmarkCreationOptions = [.withSecurityScope]
+        let options = URL.BookmarkCreationOptions(rawValue: 1 << 11)
 
         do {
             let bookmark = try folderURL.bookmarkData(options: options,
