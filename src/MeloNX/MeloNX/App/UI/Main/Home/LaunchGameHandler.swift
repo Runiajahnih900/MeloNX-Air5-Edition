@@ -200,7 +200,12 @@ class LaunchGameHandler: ObservableObject {
         // Backward-compat bridge for older cores still expecting legacy key.
         setenv("MELONX_IOS_SOS_CRASH_RESILIENCE", crashResilienceEnvValue, 1)
 
-        LogCapture.shared.logDiagnostic("Env setup: titleId=\(activeTitleId), isSOS=\(isStoryOfSeasons), isGarden=\(isTheGardenPath), isOri=\(isOriFamily), iosEventWaitPromotionFallback=\(enableEventWaitPromotion), iosNvWaitPromotionFallback=\(enableNvWaitPromotion), iosNvWaitBlocking=\(enableNvWaitBlocking), iosNvWaitTimeoutPromotion=\(enableNvWaitTimeoutPromotion), crashResilience=\(crashResilienceEnabled), lowMemoryFallback=\(lowMemoryFallbackEnabled)")
+        // Ori WotW shows repeated low-address invalid accesses; tolerating those can lock the game in
+        // endless recovery loops. Keep invalid-access resilience OFF for this title so it fails fast.
+        let invalidAccessResilienceEnabled = !(activeTitleId == Self.oriAndTheWillOfTheWispsTitleId)
+        setenv("MELONX_IOS_INVALID_ACCESS_RESILIENCE", invalidAccessResilienceEnabled ? "1" : "0", 1)
+
+        LogCapture.shared.logDiagnostic("Env setup: titleId=\(activeTitleId), isSOS=\(isStoryOfSeasons), isGarden=\(isTheGardenPath), isOri=\(isOriFamily), iosEventWaitPromotionFallback=\(enableEventWaitPromotion), iosNvWaitPromotionFallback=\(enableNvWaitPromotion), iosNvWaitBlocking=\(enableNvWaitBlocking), iosNvWaitTimeoutPromotion=\(enableNvWaitTimeoutPromotion), crashResilience=\(crashResilienceEnabled), invalidAccessResilience=\(invalidAccessResilienceEnabled), lowMemoryFallback=\(lowMemoryFallbackEnabled)")
 
         var useDualMappedJIT: Bool
         if #available(iOS 19, *) {

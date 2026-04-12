@@ -1076,6 +1076,16 @@ namespace Ryujinx.HLE.HOS.Kernel.Process
             (string.Equals(Environment.GetEnvironmentVariable("MELONX_IOS_CRASH_RESILIENCE"), "1", StringComparison.Ordinal) ||
              string.Equals(Environment.GetEnvironmentVariable("MELONX_IOS_SOS_CRASH_RESILIENCE"), "1", StringComparison.Ordinal));
 
+        private static readonly string _iosInvalidAccessResilienceEnv =
+            Environment.GetEnvironmentVariable("MELONX_IOS_INVALID_ACCESS_RESILIENCE");
+
+        private static readonly bool _iosInvalidAccessResilience =
+            OperatingSystem.IsIOS() &&
+            (
+                string.Equals(_iosInvalidAccessResilienceEnv, "1", StringComparison.Ordinal) ||
+                (_iosInvalidAccessResilienceEnv is null && _iosCrashResilience)
+            );
+
         private bool InvalidAccessHandler(ulong va)
         {
             KernelStatic.GetCurrentThread()?.PrintGuestStackTrace();
@@ -1085,7 +1095,7 @@ namespace Ryujinx.HLE.HOS.Kernel.Process
             // address accesses that may occur during fragile save/load transitions on some games.
             // Returning true tells the memory manager to provide zeroed memory instead of faulting,
             // which lets the game's error handling recover gracefully.
-            if (_iosCrashResilience && va < 0x10000)
+            if (_iosInvalidAccessResilience && va < 0x10000)
             {
                 Logger.Warning?.Print(LogClass.Cpu,
                     $"MELONX_IOS_INVALID_ACCESS_RESILIENCE: Tolerating invalid memory access at VA 0x{va:X16} on iOS. Returning zeroed memory.");
