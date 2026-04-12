@@ -200,6 +200,15 @@ class LaunchGameHandler: ObservableObject {
             useDualMappedJIT = nativeSettings.setting(forKey: "DUAL_MAPPED_JIT", default: false).value
         }
 
+        // Godot-based titles (The Garden Path / Ori) are observed to freeze at early boot on some iOS builds
+        // when dual-mapped JIT is enabled, even if initialization succeeds.
+        if isTheGardenPath || isOriAndTheBlindForest {
+            if useDualMappedJIT {
+                LogCapture.shared.logDiagnostic("Env setup: forcing DualMappedJIT=0 for Garden/ORI early-load stability")
+            }
+            useDualMappedJIT = false
+        }
+
         LogCapture.shared.logDiagnostic("Env setup: requested DualMappedJIT=\(useDualMappedJIT)")
         
         if useDualMappedJIT {
