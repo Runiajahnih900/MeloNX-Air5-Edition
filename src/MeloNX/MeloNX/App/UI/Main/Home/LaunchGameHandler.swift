@@ -396,6 +396,26 @@ class LaunchGameHandler: ObservableObject {
             }
         }
 
+        // Garden/ORI repeatedly stall/crash during early Vulkan NV init on iOS.
+        // Force OpenGL backend for these titles as the most conservative renderer path.
+        if isTheGardenPath || isOriAndTheBlindForest {
+            var rewrittenArgs: [String] = []
+            var idx = 0
+            while idx < config.additionalArgs.count {
+                let token = config.additionalArgs[idx]
+                if token.lowercased() == "--graphics-backend" {
+                    idx += 2
+                    continue
+                }
+                rewrittenArgs.append(token)
+                idx += 1
+            }
+            rewrittenArgs.append("--graphics-backend")
+            rewrittenArgs.append("OpenGl")
+            config.additionalArgs = rewrittenArgs
+            adjustments.append("graphicsBackend=OpenGl(Garden/ORI)")
+        }
+
         if !adjustments.isEmpty {
             LogCapture.shared.logDiagnostic("General crash resilience profile applied for \(game.titleId): \(adjustments.joined(separator: ","))")
         }
