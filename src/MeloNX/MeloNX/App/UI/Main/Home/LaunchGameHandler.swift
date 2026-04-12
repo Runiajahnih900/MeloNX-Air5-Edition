@@ -325,7 +325,9 @@ class LaunchGameHandler: ObservableObject {
     }
 
     private func applyGeneralCrashResilienceProfileIfNeeded(for game: Game, config: inout Ryujinx.Arguments) {
-        guard shouldEnableGeneralCrashResilience(for: game) else {
+        let isStoryOfSeasons = game.titleId.lowercased() == Self.storyOfSeasonsTitleId
+
+        guard shouldEnableGeneralCrashResilience(for: game) || isStoryOfSeasons else {
             return
         }
 
