@@ -28,6 +28,7 @@ class LaunchGameHandler: ObservableObject {
     private static let storyOfSeasonsTitleId = "0100ed400eec2000"
     private static let theGardenPathTitleId = "010030f01a882000"
     private static let oriAndTheBlindForestTitleId = "010046601125a000"
+    private static let oriAndTheWillOfTheWispsTitleId = "01008dd013200000"
     
     private let ryujinx = Ryujinx.shared
     private let nativeSettings = NativeSettingsManager.shared
@@ -172,19 +173,21 @@ class LaunchGameHandler: ObservableObject {
         let isStoryOfSeasons = activeTitleId == Self.storyOfSeasonsTitleId
         let isTheGardenPath = activeTitleId == Self.theGardenPathTitleId
         let isOriAndTheBlindForest = activeTitleId == Self.oriAndTheBlindForestTitleId
+        let isOriAndTheWillOfTheWisps = activeTitleId == Self.oriAndTheWillOfTheWispsTitleId
+        let isOriFamily = isOriAndTheBlindForest || isOriAndTheWillOfTheWisps
         let genericCrashResilienceEnabled = shouldEnableGeneralCrashResilience(for: currentGame)
         let lowMemoryFallbackEnabled = ProcessInfo.processInfo.physicalMemory <= Self.lowMemoryDeviceThresholdBytes
 
         // Hybrid strategy:
         // - keep generalized profile for broad compatibility
         // - hard-enable known fragile titles on iOS save/load or early boot paths
-        let crashResilienceEnabled = genericCrashResilienceEnabled || isStoryOfSeasons || isTheGardenPath || isOriAndTheBlindForest
+        let crashResilienceEnabled = genericCrashResilienceEnabled || isStoryOfSeasons || isTheGardenPath || isOriFamily
         let enableNvWaitBlocking = !ProcessInfo.processInfo.isiOSAppOnMac && (crashResilienceEnabled || lowMemoryFallbackEnabled)
 
         // For Garden/ORI, avoid syncpoint timeout promotion because forced promotion can
         // desynchronize guest/host GPU progress and lead to early-load stalls/crashes.
         var enableNvWaitTimeoutPromotion = !ProcessInfo.processInfo.isiOSAppOnMac && (crashResilienceEnabled || lowMemoryFallbackEnabled)
-        if isTheGardenPath || isOriAndTheBlindForest {
+        if isTheGardenPath || isOriFamily {
             enableNvWaitTimeoutPromotion = false
         }
 
@@ -197,7 +200,7 @@ class LaunchGameHandler: ObservableObject {
         // Backward-compat bridge for older cores still expecting legacy key.
         setenv("MELONX_IOS_SOS_CRASH_RESILIENCE", crashResilienceEnvValue, 1)
 
-        LogCapture.shared.logDiagnostic("Env setup: titleId=\(activeTitleId), isSOS=\(isStoryOfSeasons), isGarden=\(isTheGardenPath), isOri=\(isOriAndTheBlindForest), iosEventWaitPromotionFallback=\(enableEventWaitPromotion), iosNvWaitPromotionFallback=\(enableNvWaitPromotion), iosNvWaitBlocking=\(enableNvWaitBlocking), iosNvWaitTimeoutPromotion=\(enableNvWaitTimeoutPromotion), crashResilience=\(crashResilienceEnabled), lowMemoryFallback=\(lowMemoryFallbackEnabled)")
+        LogCapture.shared.logDiagnostic("Env setup: titleId=\(activeTitleId), isSOS=\(isStoryOfSeasons), isGarden=\(isTheGardenPath), isOri=\(isOriFamily), iosEventWaitPromotionFallback=\(enableEventWaitPromotion), iosNvWaitPromotionFallback=\(enableNvWaitPromotion), iosNvWaitBlocking=\(enableNvWaitBlocking), iosNvWaitTimeoutPromotion=\(enableNvWaitTimeoutPromotion), crashResilience=\(crashResilienceEnabled), lowMemoryFallback=\(lowMemoryFallbackEnabled)")
 
         var useDualMappedJIT: Bool
         if #available(iOS 19, *) {
@@ -206,9 +209,9 @@ class LaunchGameHandler: ObservableObject {
             useDualMappedJIT = nativeSettings.setting(forKey: "DUAL_MAPPED_JIT", default: false).value
         }
 
-        // Godot-based titles (The Garden Path / Ori) are observed to freeze at early boot on some iOS builds
+        // Godot-based titles (The Garden Path / Ori family) are observed to freeze at early boot on some iOS builds
         // when dual-mapped JIT is enabled, even if initialization succeeds.
-        if isTheGardenPath || isOriAndTheBlindForest {
+        if isTheGardenPath || isOriFamily {
             if useDualMappedJIT {
                 LogCapture.shared.logDiagnostic("Env setup: forcing DualMappedJIT=0 for Garden/ORI early-load stability")
             }
@@ -243,7 +246,7 @@ class LaunchGameHandler: ObservableObject {
 
         // Garden/ORI are Godot-based and have shown early-load instability on iOS with
         // Metal argument buffers enabled through MoltenVK on some devices/OS versions.
-        if isTheGardenPath || isOriAndTheBlindForest {
+        if isTheGardenPath || isOriFamily {
             useMetalArgumentBuffers = false
             LogCapture.shared.logDiagnostic("Env setup: forcing argument buffers=0 for Garden/ORI stability")
         }
@@ -355,8 +358,10 @@ class LaunchGameHandler: ObservableObject {
         let isStoryOfSeasons = activeTitleId == Self.storyOfSeasonsTitleId
         let isTheGardenPath = activeTitleId == Self.theGardenPathTitleId
         let isOriAndTheBlindForest = activeTitleId == Self.oriAndTheBlindForestTitleId
+        let isOriAndTheWillOfTheWisps = activeTitleId == Self.oriAndTheWillOfTheWispsTitleId
+        let isOriFamily = isOriAndTheBlindForest || isOriAndTheWillOfTheWisps
 
-        guard shouldEnableGeneralCrashResilience(for: game) || isStoryOfSeasons || isTheGardenPath || isOriAndTheBlindForest else {
+        guard shouldEnableGeneralCrashResilience(for: game) || isStoryOfSeasons || isTheGardenPath || isOriFamily else {
             return
         }
 
@@ -385,12 +390,14 @@ class LaunchGameHandler: ObservableObject {
             adjustments.append("backendThreading=Off")
         }
 
-        if (isStoryOfSeasons || isTheGardenPath || isOriAndTheBlindForest), config.memoryManagerMode != "SoftwarePageTable" {
+        if (isStoryOfSeasons || isTheGardenPath || isOriFamily), config.memoryManagerMode != "SoftwarePageTable" {
             config.memoryManagerMode = "SoftwarePageTable"
             if isStoryOfSeasons {
                 adjustments.append("memoryMode=SoftwarePageTable(SOS)")
             } else if isTheGardenPath {
                 adjustments.append("memoryMode=SoftwarePageTable(Garden)")
+            } else if isOriAndTheWillOfTheWisps {
+                adjustments.append("memoryMode=SoftwarePageTable(OriWotW)")
             } else {
                 adjustments.append("memoryMode=SoftwarePageTable(ORI)")
             }
@@ -398,7 +405,7 @@ class LaunchGameHandler: ObservableObject {
 
         // Garden/ORI on iOS are sensitive to HLE service behavior during early boot.
         // Prefer stricter service emulation and avoid suppressing missing service faults.
-        if isTheGardenPath || isOriAndTheBlindForest {
+        if isTheGardenPath || isOriFamily {
             if config.ignoreMissingServices {
                 config.ignoreMissingServices = false
                 adjustments.append("ignoreMissingServices=false(Garden/ORI)")
