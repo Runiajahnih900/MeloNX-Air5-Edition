@@ -105,30 +105,20 @@ struct MeloNXApp: View {
 
         RyujinxBridge.initialize()
         
-        let cool: Bool
         if #available(iOS 19, *) {
             if ProcessInfo.processInfo.hasTXM {
                 NativeSettingsManager.shared.setting(forKey: "DUAL_MAPPED_JIT", default: true).value = true
             }
-            
-            cool = NativeSettingsManager.shared.setting(forKey: "DUAL_MAPPED_JIT", default: true).value
-        } else {
-            cool = NativeSettingsManager.shared.setting(forKey: "DUAL_MAPPED_JIT", default: false).value
         }
-        
-        JIT26BreakpointHandler()
-        
-        if cool {
-            EnvironmentVariable(string: "DUAL_MAPPED_JIT", value: "1").set()
-            LaunchGameHandler.succeededJIT = RyujinxBridge.initialize_dualmapped()
 
-            if !LaunchGameHandler.succeededJIT {
-                EnvironmentVariable(string: "DUAL_MAPPED_JIT", value: "0").set()
-            }
-        } else {
-            EnvironmentVariable(string: "DUAL_MAPPED_JIT", value: "0").set()
-            LaunchGameHandler.succeededJIT = true
-        }
+        JIT26BreakpointHandler()
+
+        // Important: avoid globally enabling dual-mapped JIT at app boot.
+        // Per-title launch logic in LaunchGameHandler decides whether to enable it.
+        // This prevents metadata/library flows (GetGameInfo) from running with dual-mapped JIT
+        // before game-specific compatibility overrides are applied.
+        EnvironmentVariable(string: "DUAL_MAPPED_JIT", value: "0").set()
+        LaunchGameHandler.succeededJIT = true
     }
 }
 
