@@ -26,6 +26,8 @@ class LaunchGameHandler: ObservableObject {
     private static let lowMemoryDeviceThresholdBytes: UInt64 = 6_442_450_944 // 6 GiB
     private static let standardMemoryDeviceThresholdBytes: UInt64 = 8_589_934_592 // 8 GiB
     private static let storyOfSeasonsTitleId = "0100ed400eec2000"
+    private static let theGardenPathTitleId = "010030f01a882000"
+    private static let oriAndTheBlindForestTitleId = "010046601125a000"
     
     private let ryujinx = Ryujinx.shared
     private let nativeSettings = NativeSettingsManager.shared
@@ -168,13 +170,15 @@ class LaunchGameHandler: ObservableObject {
         let enableNvWaitPromotion = nativeSettings.setting(forKey: "iosNvWaitPromotionFallback", default: false).value
         let activeTitleId = currentGame?.titleId.lowercased() ?? ""
         let isStoryOfSeasons = activeTitleId == Self.storyOfSeasonsTitleId
+        let isTheGardenPath = activeTitleId == Self.theGardenPathTitleId
+        let isOriAndTheBlindForest = activeTitleId == Self.oriAndTheBlindForestTitleId
         let genericCrashResilienceEnabled = shouldEnableGeneralCrashResilience(for: currentGame)
         let lowMemoryFallbackEnabled = ProcessInfo.processInfo.physicalMemory <= Self.lowMemoryDeviceThresholdBytes
 
         // Hybrid strategy:
         // - keep generalized profile for broad compatibility
-        // - hard-enable SOS safeguards because this title is consistently load/save fragile on iOS
-        let crashResilienceEnabled = genericCrashResilienceEnabled || isStoryOfSeasons
+        // - hard-enable known fragile titles on iOS save/load or early boot paths
+        let crashResilienceEnabled = genericCrashResilienceEnabled || isStoryOfSeasons || isTheGardenPath || isOriAndTheBlindForest
         let enableNvWaitBlocking = !ProcessInfo.processInfo.isiOSAppOnMac && (crashResilienceEnabled || lowMemoryFallbackEnabled)
         let enableNvWaitTimeoutPromotion = !ProcessInfo.processInfo.isiOSAppOnMac && (crashResilienceEnabled || lowMemoryFallbackEnabled)
 
@@ -187,7 +191,7 @@ class LaunchGameHandler: ObservableObject {
         // Backward-compat bridge for older cores still expecting legacy key.
         setenv("MELONX_IOS_SOS_CRASH_RESILIENCE", crashResilienceEnvValue, 1)
 
-        LogCapture.shared.logDiagnostic("Env setup: titleId=\(activeTitleId), isSOS=\(isStoryOfSeasons), iosEventWaitPromotionFallback=\(enableEventWaitPromotion), iosNvWaitPromotionFallback=\(enableNvWaitPromotion), iosNvWaitBlocking=\(enableNvWaitBlocking), iosNvWaitTimeoutPromotion=\(enableNvWaitTimeoutPromotion), crashResilience=\(crashResilienceEnabled), lowMemoryFallback=\(lowMemoryFallbackEnabled)")
+        LogCapture.shared.logDiagnostic("Env setup: titleId=\(activeTitleId), isSOS=\(isStoryOfSeasons), isGarden=\(isTheGardenPath), isOri=\(isOriAndTheBlindForest), iosEventWaitPromotionFallback=\(enableEventWaitPromotion), iosNvWaitPromotionFallback=\(enableNvWaitPromotion), iosNvWaitBlocking=\(enableNvWaitBlocking), iosNvWaitTimeoutPromotion=\(enableNvWaitTimeoutPromotion), crashResilience=\(crashResilienceEnabled), lowMemoryFallback=\(lowMemoryFallbackEnabled)")
 
         var useDualMappedJIT: Bool
         if #available(iOS 19, *) {
@@ -325,9 +329,12 @@ class LaunchGameHandler: ObservableObject {
     }
 
     private func applyGeneralCrashResilienceProfileIfNeeded(for game: Game, config: inout Ryujinx.Arguments) {
-        let isStoryOfSeasons = game.titleId.lowercased() == Self.storyOfSeasonsTitleId
+        let activeTitleId = game.titleId.lowercased()
+        let isStoryOfSeasons = activeTitleId == Self.storyOfSeasonsTitleId
+        let isTheGardenPath = activeTitleId == Self.theGardenPathTitleId
+        let isOriAndTheBlindForest = activeTitleId == Self.oriAndTheBlindForestTitleId
 
-        guard shouldEnableGeneralCrashResilience(for: game) || isStoryOfSeasons else {
+        guard shouldEnableGeneralCrashResilience(for: game) || isStoryOfSeasons || isTheGardenPath || isOriAndTheBlindForest else {
             return
         }
 
@@ -356,9 +363,15 @@ class LaunchGameHandler: ObservableObject {
             adjustments.append("backendThreading=Off")
         }
 
-        if isStoryOfSeasons, config.memoryManagerMode != "SoftwarePageTable" {
+        if (isStoryOfSeasons || isTheGardenPath || isOriAndTheBlindForest), config.memoryManagerMode != "SoftwarePageTable" {
             config.memoryManagerMode = "SoftwarePageTable"
-            adjustments.append("memoryMode=SoftwarePageTable(SOS)")
+            if isStoryOfSeasons {
+                adjustments.append("memoryMode=SoftwarePageTable(SOS)")
+            } else if isTheGardenPath {
+                adjustments.append("memoryMode=SoftwarePageTable(Garden)")
+            } else {
+                adjustments.append("memoryMode=SoftwarePageTable(ORI)")
+            }
         }
 
         if !adjustments.isEmpty {

@@ -12,6 +12,24 @@ let withSecurityScope = URL.BookmarkResolutionOptions(rawValue: 1 << 10)
 
 class ROMFolderManager: ObservableObject {
     
+    func normalizeFolderURL(url: URL) -> URL? {
+        let fileManager = FileManager.default
+        var isDirectory: ObjCBool = false
+
+        if fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory), isDirectory.boolValue {
+            return url
+        }
+
+        let parent = url.deletingLastPathComponent()
+        var parentIsDirectory: ObjCBool = false
+
+        if fileManager.fileExists(atPath: parent.path, isDirectory: &parentIsDirectory), parentIsDirectory.boolValue {
+            return parent
+        }
+
+        return nil
+    }
+    
     private let bookmarksKey = "ROMFolderManagerBookmarks"
     @Published var bookmarks: [Data] = [] {
         didSet {
@@ -26,11 +44,17 @@ class ROMFolderManager: ObservableObject {
     static var shared = ROMFolderManager()
     
     func addFolder(url: URL) -> Bool {
-        let options = URL.BookmarkCreationOptions(rawValue: 1 << 11)
+        guard let folderURL = normalizeFolderURL(url: url) else {
+            print("Failed to add folder: selected URL is not a valid directory")
+            return false
+        }
+
+        let options: URL.BookmarkCreationOptions = [.withSecurityScope]
+
         do {
-            let bookmark = try url.bookmarkData(options: options,
-                                                includingResourceValuesForKeys: nil,
-                                                relativeTo: nil)
+            let bookmark = try folderURL.bookmarkData(options: options,
+                                                      includingResourceValuesForKeys: nil,
+                                                      relativeTo: nil)
             bookmarks.append(bookmark)
             saveBookmarks()
             return true
@@ -53,24 +77,9 @@ class ROMFolderManager: ObservableObject {
             )
             
             if isStale {
-                print("stale")
-                
-                _ = url.startAccessingSecurityScopedResource()
-                defer { url.stopAccessingSecurityScopedResource() }
-                let options = URL.BookmarkCreationOptions(rawValue: 1 << 11)
-                let newBookmark = try url.bookmarkData(
-                    options: options,
-                    includingResourceValuesForKeys: nil,
-                    relativeTo: nil
-                )
-                
-                if let index = bookmarks.firstIndex(where: { $0 == bookmark }) {
-                    bookmarks[index] = newBookmark
-                } else {
-                    bookmarks.append(newBookmark)
-                }
-                
-                print("Bookmark refreshed and saved.")
+                // Avoid mutating @Published bookmarks during SwiftUI render paths.
+                // Stale bookmark refresh is handled lazily by addFolder/loadGames flows.
+                print("Bookmark is stale for URL: \(url.path)")
             }
             
             return url
