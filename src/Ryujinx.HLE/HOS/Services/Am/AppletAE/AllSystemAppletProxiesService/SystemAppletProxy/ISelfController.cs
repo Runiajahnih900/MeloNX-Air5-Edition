@@ -30,6 +30,9 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletAE.AllSystemAppletProxiesService.Sys
         private bool _performanceModeChangedNotification = false;
         private bool _restartMessageEnabled = false;
         private bool _outOfFocusSuspendingEnabled = false;
+        private bool _focusHandlingModeNotifyRunning = false;
+        private bool _focusHandlingModeUnknown1 = false;
+        private bool _focusHandlingModeUnknown2 = false;
         private bool _handlesRequestToDisplay = false;
 #pragma warning restore IDE0052
         private bool _autoSleepDisabled = false;
@@ -171,11 +174,22 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletAE.AllSystemAppletProxiesService.Sys
         // SetFocusHandlingMode(b8, b8, b8)
         public ResultCode SetFocusHandlingMode(ServiceCtx context)
         {
+            bool notifyRunning = context.RequestData.ReadBoolean();
             bool unknownFlag1 = context.RequestData.ReadBoolean();
             bool unknownFlag2 = context.RequestData.ReadBoolean();
-            bool unknownFlag3 = context.RequestData.ReadBoolean();
 
-            Logger.Stub?.PrintStub(LogClass.ServiceAm, new { unknownFlag1, unknownFlag2, unknownFlag3 });
+            _focusHandlingModeNotifyRunning = notifyRunning;
+            _focusHandlingModeUnknown1 = unknownFlag1;
+            _focusHandlingModeUnknown2 = unknownFlag2;
+
+            // If the app explicitly asks to be informed about running/focus state,
+            // ensure there is at least one pending focus notification to consume.
+            if (notifyRunning)
+            {
+                context.Device.System.AppletState.SetFocus(true);
+            }
+
+            Logger.Stub?.PrintStub(LogClass.ServiceAm, new { notifyRunning, unknownFlag1, unknownFlag2 });
 
             return ResultCode.Success;
         }

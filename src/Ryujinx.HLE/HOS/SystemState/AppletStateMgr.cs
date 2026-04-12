@@ -27,14 +27,17 @@ namespace Ryujinx.HLE.HOS.SystemState
 
         public void SetFocus(bool isFocused)
         {
-            FocusState = isFocused ? FocusState.InFocus : FocusState.OutOfFocus;
+            FocusState newFocusState = isFocused ? FocusState.InFocus : FocusState.OutOfFocus;
+
+            if (FocusState == newFocusState)
+            {
+                return;
+            }
+
+            FocusState = newFocusState;
 
             Messages.Enqueue(AppletMessage.FocusStateChanged);
-
-            if (isFocused)
-            {
-                Messages.Enqueue(AppletMessage.ChangeIntoForeground);
-            }
+            Messages.Enqueue(isFocused ? AppletMessage.ChangeIntoForeground : AppletMessage.ChangeIntoBackground);
 
             MessageEvent.ReadableEvent.Signal();
         }

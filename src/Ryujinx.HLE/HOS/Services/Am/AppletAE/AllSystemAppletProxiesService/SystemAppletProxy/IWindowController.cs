@@ -28,7 +28,11 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletAE.AllSystemAppletProxiesService.Sys
         // AcquireForegroundRights()
         public ResultCode AcquireForegroundRights(ServiceCtx context)
         {
-            Logger.Stub?.PrintStub(LogClass.ServiceAm);
+            // Reflect foreground acquisition in applet state so clients waiting on
+            // focus/foreground transitions can proceed.
+            context.Device.System.AppletState.SetFocus(true);
+
+            Logger.Stub?.PrintStub(LogClass.ServiceAm, new { appletResourceUserId = _pid });
 
             return ResultCode.Success;
         }
