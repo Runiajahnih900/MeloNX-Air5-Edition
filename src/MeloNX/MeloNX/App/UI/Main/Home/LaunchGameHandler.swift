@@ -418,6 +418,26 @@ class LaunchGameHandler: ObservableObject {
             adjustments.append("memoryMode=HostMapped(OriWotW)")
         }
 
+        // On some iOS 16 + M1 combinations Ori WotW stalls after SurfaceFlinger layer creation on Vulkan.
+        // Force OpenGL backend for this title as a compatibility fallback.
+        if isOriAndTheWillOfTheWisps {
+            let normalizedArgsNow = config.additionalArgs.map {
+                $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            }
+
+            if let graphicsIndex = normalizedArgsNow.firstIndex(of: "--graphics-backend") {
+                if graphicsIndex + 1 < config.additionalArgs.count,
+                   config.additionalArgs[graphicsIndex + 1].lowercased() != "opengl" {
+                    config.additionalArgs[graphicsIndex + 1] = "OpenGl"
+                    adjustments.append("graphicsBackend=OpenGl(OriWotW)")
+                }
+            } else {
+                config.additionalArgs.append("--graphics-backend")
+                config.additionalArgs.append("OpenGl")
+                adjustments.append("graphicsBackend=OpenGl(OriWotW)")
+            }
+        }
+
         // Garden/ORI on iOS are sensitive to HLE service behavior during early boot.
         // Prefer stricter service emulation and avoid suppressing missing service faults.
         if isTheGardenPath || isOriFamily {
