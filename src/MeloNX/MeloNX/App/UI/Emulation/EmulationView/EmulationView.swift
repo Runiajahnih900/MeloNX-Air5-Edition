@@ -113,12 +113,11 @@ struct EmulationView: View {
             }
             
             // LocationManager.sharedInstance.startUpdatingLocation()
+            // Keep AirPlay connection callbacks disabled during active emulation startup.
+            // Prevents external-screen lifecycle churn from interrupting fragile boot sequences.
             if !ProcessInfo.processInfo.isiOSAppOnMac {
-                Air.shared.connectionCallbacks.append { cool in
-                    Task { @MainActor in
-                        isAirplaying = cool
-                    }
-                }
+                isAirplaying = false
+                LogCapture.shared.logDiagnostic("EmulationView startup-guard: AirPlay callbacks suppressed during emulation")
             }
             
             RegisterCallback("exit-emulation") { cool in

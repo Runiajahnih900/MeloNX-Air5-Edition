@@ -95,11 +95,10 @@ struct ContentView: View {
                     }
 
                     if !ProcessInfo.processInfo.isiOSAppOnMac {
-                        Air.play(AnyView(
-                            GamesListAirplay()
-                                .environmentObject(gameHandler)
-                                .environmentObject(ryujinx)
-                        ))
+                        // Lifecycle guard: do not auto-start AirPlay mirror host on app launch.
+                        // On some iOS builds this can trigger foreground/background churn during
+                        // game startup and contribute to early boot stalls.
+                        LogCapture.shared.logDiagnostic("ContentView startup-guard: skipped auto Air.play() initialization")
                     }
 
                     try? await Task.sleep(nanoseconds: 500_000_000)
