@@ -241,6 +241,13 @@ class LaunchGameHandler: ObservableObject {
         let supportsArgumentBuffersTier2 = device.argumentBuffersSupport.rawValue >= MTLArgumentBuffersTier.tier2.rawValue
         var useMetalArgumentBuffers = supportsArgumentBuffersTier2
 
+        // Garden/ORI are Godot-based and have shown early-load instability on iOS with
+        // Metal argument buffers enabled through MoltenVK on some devices/OS versions.
+        if isTheGardenPath || isOriAndTheBlindForest {
+            useMetalArgumentBuffers = false
+            LogCapture.shared.logDiagnostic("Env setup: forcing argument buffers=0 for Garden/ORI stability")
+        }
+
         setenv("MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS", useMetalArgumentBuffers ? "1" : "0", 1)
         LogCapture.shared.logDiagnostic("Env setup: device=\(device.name), argumentBuffersTier2=\(supportsArgumentBuffersTier2), usingArgumentBuffers=\(useMetalArgumentBuffers)")
     }
