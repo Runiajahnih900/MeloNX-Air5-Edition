@@ -149,6 +149,13 @@ class LaunchGameHandler: ObservableObject {
             config.inputids.append("0")
         }
 
+        // Ensure final ORI guardrail is applied after all profile passes.
+        let finalTitleId = currentGame.titleId.lowercased()
+        if finalTitleId == Self.oriAndTheWillOfTheWispsTitleId && config.memoryManagerMode != "HostMapped" {
+            config.memoryManagerMode = "HostMapped"
+            LogCapture.shared.logDiagnostic("Final guardrail: forcing memoryMode=HostMapped for OriWotW")
+        }
+
         LogCapture.shared.logDiagnostic("Config summary: memoryMode=\(config.memoryManagerMode), disablePTC=\(config.disablePTC), expandRam=\(config.expandRam), hypervisor=\(config.hypervisor), debugLogs=\(config.debuglogs), traceLogs=\(config.tracelogs), macroHLE=\(config.macroHLE), docked=\(config.enableDockedMode), ignoreMissingServices=\(config.ignoreMissingServices), controllerCount=\(config.inputids.count)")
         LogCapture.shared.logDiagnostic("Config additionalArgs=\(config.additionalArgs.joined(separator: " "))")
         
@@ -395,17 +402,20 @@ class LaunchGameHandler: ObservableObject {
             adjustments.append("backendThreading=Off")
         }
 
-        if (isStoryOfSeasons || isTheGardenPath || isOriFamily), config.memoryManagerMode != "SoftwarePageTable" {
+        if (isStoryOfSeasons || isTheGardenPath), config.memoryManagerMode != "SoftwarePageTable" {
             config.memoryManagerMode = "SoftwarePageTable"
             if isStoryOfSeasons {
                 adjustments.append("memoryMode=SoftwarePageTable(SOS)")
-            } else if isTheGardenPath {
-                adjustments.append("memoryMode=SoftwarePageTable(Garden)")
-            } else if isOriAndTheWillOfTheWisps {
-                adjustments.append("memoryMode=SoftwarePageTable(OriWotW)")
             } else {
-                adjustments.append("memoryMode=SoftwarePageTable(ORI)")
+                adjustments.append("memoryMode=SoftwarePageTable(Garden)")
             }
+        }
+
+        // Ori WotW can hit InvalidMemoryRegionException under SoftwarePageTable on some iOS builds.
+        // Prefer HostMapped for this title while keeping other stability toggles.
+        if isOriAndTheWillOfTheWisps, config.memoryManagerMode != "HostMapped" {
+            config.memoryManagerMode = "HostMapped"
+            adjustments.append("memoryMode=HostMapped(OriWotW)")
         }
 
         // Garden/ORI on iOS are sensitive to HLE service behavior during early boot.
