@@ -192,7 +192,14 @@ struct GamesListView: View {
             }
         }
         .onAppear() {
-            ryujinx.addGames()
+            // Avoid expensive metadata rescans (GetGameInfo) while a game is booting/running.
+            // Re-entering the Library view during emulation can trigger repeated PFS probing and
+            // interfere with startup stability on fragile titles.
+            if ryujinx.isRunning || gameHandler.currentGame != nil {
+                LogCapture.shared.logDiagnostic("GamesListView onAppear: skipped addGames() because emulation is active")
+            } else {
+                ryujinx.addGames()
+            }
         }
     }
     

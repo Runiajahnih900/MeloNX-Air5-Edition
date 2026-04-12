@@ -26,6 +26,7 @@ struct EmulationView: View {
     @State private var isInBackground = false
     @State var showControllerSettings = false
     @State var pauseEmu = true
+    @State private var emulationStartedAt: Date = Date()
     @AppStorage("location-enabled") var locationenabled: Bool = false
     @FocusState private var isFocused: Bool
     @EnvironmentObject var ryujinx: Ryujinx
@@ -104,6 +105,9 @@ struct EmulationView: View {
             }
         }
         .onAppear {
+            emulationStartedAt = Date()
+            LogCapture.shared.logDiagnostic("EmulationView onAppear: start timestamp set")
+
            Task { @MainActor in
                 isFocused = true
             }
@@ -143,21 +147,32 @@ struct EmulationView: View {
 
             LogCapture.shared.logDiagnostic("EmulationView scenePhase changed to \(phaseName)")
 
+            let uptime = Date().timeIntervalSince(emulationStartedAt)
+            let startupGuardActive = uptime < 20
+
             if newPhase == .background {
-                RyujinxBridge.pauseEmulation(true)
-                isInBackground = true
-                pauseEmu = true
-                LogCapture.shared.logDiagnostic("EmulationView action: pauseEmulation(true) for background phase")
+                if startupGuardActive {
+                    LogCapture.shared.logDiagnostic("EmulationView startup-guard: ignored pause for background phase (uptime=\(uptime)s)")
+                } else {
+                    RyujinxBridge.pauseEmulation(true)
+                    isInBackground = true
+                    pauseEmu = true
+                    LogCapture.shared.logDiagnostic("EmulationView action: pauseEmulation(true) for background phase")
+                }
             } else if newPhase == .active {
                 RyujinxBridge.pauseEmulation(false)
                 isInBackground = false
                 pauseEmu = false
                 LogCapture.shared.logDiagnostic("EmulationView action: pauseEmulation(false) for active phase")
             } else if newPhase == .inactive {
-                RyujinxBridge.pauseEmulation(true)
-                isInBackground = true
-                pauseEmu = true
-                LogCapture.shared.logDiagnostic("EmulationView action: pauseEmulation(true) for inactive phase")
+                if startupGuardActive {
+                    LogCapture.shared.logDiagnostic("EmulationView startup-guard: ignored pause for inactive phase (uptime=\(uptime)s)")
+                } else {
+                    RyujinxBridge.pauseEmulation(true)
+                    isInBackground = true
+                    pauseEmu = true
+                    LogCapture.shared.logDiagnostic("EmulationView action: pauseEmulation(true) for inactive phase")
+                }
             }
         }
         .sheet(isPresented: $showControllerSettings) {
