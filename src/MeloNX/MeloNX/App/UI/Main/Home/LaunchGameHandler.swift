@@ -339,9 +339,6 @@ class LaunchGameHandler: ObservableObject {
             adjustments.append("memoryMode=HostMapped")
         }
 
-        let activeTitleId = game.titleId.lowercased()
-        let isStoryOfSeasons = activeTitleId == Self.storyOfSeasonsTitleId
-
         // Keep backend threading conservative to reduce race-related stalls on mobile iOS GPUs.
         // For SOS this is treated as hard override.
         let normalizedArgs = config.additionalArgs
