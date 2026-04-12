@@ -1078,8 +1078,8 @@ namespace Ryujinx.HLE.HOS.Kernel.Process
 
         // Keep this dynamic (not static-cached) because the iOS launcher can change
         // MELONX_IOS_INVALID_ACCESS_RESILIENCE per-title before each game starts.
-        // If we cache once at type initialization, Ori WotW can inherit stale value=1
-        // from a previous title and keep looping while spamming giant logs.
+        // Also keep it strict opt-in: only explicit "1" enables resilience.
+        // This avoids accidental fallback-to-on behavior when env propagation fails.
         private static bool IsIosInvalidAccessResilienceEnabled()
         {
             if (!OperatingSystem.IsIOS())
@@ -1089,8 +1089,7 @@ namespace Ryujinx.HLE.HOS.Kernel.Process
 
             string envValue = Environment.GetEnvironmentVariable("MELONX_IOS_INVALID_ACCESS_RESILIENCE");
 
-            return string.Equals(envValue, "1", StringComparison.Ordinal) ||
-                   (envValue is null && _iosCrashResilience);
+            return string.Equals(envValue, "1", StringComparison.Ordinal);
         }
 
         private static long _lastInvalidAccessResilienceWarnTicks;
