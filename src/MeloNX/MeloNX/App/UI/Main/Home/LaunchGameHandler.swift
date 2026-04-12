@@ -180,7 +180,13 @@ class LaunchGameHandler: ObservableObject {
         // - hard-enable known fragile titles on iOS save/load or early boot paths
         let crashResilienceEnabled = genericCrashResilienceEnabled || isStoryOfSeasons || isTheGardenPath || isOriAndTheBlindForest
         let enableNvWaitBlocking = !ProcessInfo.processInfo.isiOSAppOnMac && (crashResilienceEnabled || lowMemoryFallbackEnabled)
-        let enableNvWaitTimeoutPromotion = !ProcessInfo.processInfo.isiOSAppOnMac && (crashResilienceEnabled || lowMemoryFallbackEnabled)
+
+        // For Garden/ORI, avoid syncpoint timeout promotion because forced promotion can
+        // desynchronize guest/host GPU progress and lead to early-load stalls/crashes.
+        var enableNvWaitTimeoutPromotion = !ProcessInfo.processInfo.isiOSAppOnMac && (crashResilienceEnabled || lowMemoryFallbackEnabled)
+        if isTheGardenPath || isOriAndTheBlindForest {
+            enableNvWaitTimeoutPromotion = false
+        }
 
         setenv("MELONX_IOS_EVENTWAIT_PROMOTION", enableEventWaitPromotion ? "1" : "0", 1)
         setenv("MELONX_IOS_NV_WAIT_PROMOTION", enableNvWaitPromotion ? "1" : "0", 1)
