@@ -418,23 +418,34 @@ class LaunchGameHandler: ObservableObject {
             adjustments.append("memoryMode=HostMapped(OriWotW)")
         }
 
-        // On some iOS 16 + M1 combinations Ori WotW stalls after SurfaceFlinger layer creation on Vulkan.
-        // Force OpenGL backend for this title as a compatibility fallback.
+        // Keep Vulkan path on iOS. OpenGL is not available and will fall back to Vulkan anyway.
+        // For Ori WotW, prefer backend threading Auto to reduce startup deadlock risk observed with Off,
+        // and remove any stale graphics-backend override from previous profile experiments.
         if isOriAndTheWillOfTheWisps {
-            let normalizedArgsNow = config.additionalArgs.map {
+            var normalizedArgsNow = config.additionalArgs.map {
+                $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            }
+
+            if let backendIndex = normalizedArgsNow.firstIndex(of: "--backend-threading") {
+                if backendIndex + 1 < config.additionalArgs.count,
+                   config.additionalArgs[backendIndex + 1].lowercased() != "auto" {
+                    config.additionalArgs[backendIndex + 1] = "Auto"
+                    adjustments.append("backendThreading=Auto(OriWotW)")
+                }
+            } else {
+                config.additionalArgs.append("--backend-threading")
+                config.additionalArgs.append("Auto")
+                adjustments.append("backendThreading=Auto(OriWotW)")
+            }
+
+            normalizedArgsNow = config.additionalArgs.map {
                 $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             }
 
             if let graphicsIndex = normalizedArgsNow.firstIndex(of: "--graphics-backend") {
-                if graphicsIndex + 1 < config.additionalArgs.count,
-                   config.additionalArgs[graphicsIndex + 1].lowercased() != "opengl" {
-                    config.additionalArgs[graphicsIndex + 1] = "OpenGl"
-                    adjustments.append("graphicsBackend=OpenGl(OriWotW)")
-                }
-            } else {
-                config.additionalArgs.append("--graphics-backend")
-                config.additionalArgs.append("OpenGl")
-                adjustments.append("graphicsBackend=OpenGl(OriWotW)")
+                let removeCount = (graphicsIndex + 1 < config.additionalArgs.count) ? 2 : 1
+                config.additionalArgs.removeSubrange(graphicsIndex..<(graphicsIndex + removeCount))
+                adjustments.append("graphicsBackend=VulkanDefault(OriWotW)")
             }
         }
 

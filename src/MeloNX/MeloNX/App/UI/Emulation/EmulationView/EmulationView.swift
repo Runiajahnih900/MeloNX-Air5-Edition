@@ -148,7 +148,7 @@ struct EmulationView: View {
             LogCapture.shared.logDiagnostic("EmulationView scenePhase changed to \(phaseName)")
 
             let uptime = Date().timeIntervalSince(emulationStartedAt)
-            let startupGuardActive = uptime < 20
+            let startupGuardActive = uptime < 35
 
             if newPhase == .background {
                 if startupGuardActive {
