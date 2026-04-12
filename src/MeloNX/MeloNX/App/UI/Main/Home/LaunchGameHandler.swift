@@ -174,8 +174,8 @@ class LaunchGameHandler: ObservableObject {
     private func configureEnvironmentVariables(for config: Ryujinx.Arguments) {
         LogCapture.shared.logDiagnostic("MELONX_IOS_CRASH_RESILIENCE_V1_ACTIVE: generalized compatibility profile enabled")
 
-        let enableEventWaitPromotion = nativeSettings.setting(forKey: "iosEventWaitPromotionFallback", default: false).value
-        let enableNvWaitPromotion = nativeSettings.setting(forKey: "iosNvWaitPromotionFallback", default: false).value
+        var enableEventWaitPromotion = nativeSettings.setting(forKey: "iosEventWaitPromotionFallback", default: false).value
+        var enableNvWaitPromotion = nativeSettings.setting(forKey: "iosNvWaitPromotionFallback", default: false).value
         let activeTitleId = currentGame?.titleId.lowercased() ?? ""
         let isStoryOfSeasons = activeTitleId == Self.storyOfSeasonsTitleId
         let isTheGardenPath = activeTitleId == Self.theGardenPathTitleId
@@ -189,13 +189,22 @@ class LaunchGameHandler: ObservableObject {
         // - keep generalized profile for broad compatibility
         // - hard-enable known fragile titles on iOS save/load or early boot paths
         let crashResilienceEnabled = genericCrashResilienceEnabled || isStoryOfSeasons || isTheGardenPath || isOriFamily
-        let enableNvWaitBlocking = !ProcessInfo.processInfo.isiOSAppOnMac && (crashResilienceEnabled || lowMemoryFallbackEnabled)
+        var enableNvWaitBlocking = !ProcessInfo.processInfo.isiOSAppOnMac && (crashResilienceEnabled || lowMemoryFallbackEnabled)
 
         // For Garden/ORI, avoid syncpoint timeout promotion because forced promotion can
         // desynchronize guest/host GPU progress and lead to early-load stalls/crashes.
         var enableNvWaitTimeoutPromotion = !ProcessInfo.processInfo.isiOSAppOnMac && (crashResilienceEnabled || lowMemoryFallbackEnabled)
         if isTheGardenPath || isOriFamily {
             enableNvWaitTimeoutPromotion = false
+        }
+
+        // Ori WotW Vulkan boot tuning:
+        // - avoid hard blocking waits that can deadlock startup loops
+        // - allow promotion fallbacks to keep guest progress moving
+        if isOriAndTheWillOfTheWisps {
+            enableNvWaitBlocking = false
+            enableNvWaitPromotion = true
+            enableEventWaitPromotion = true
         }
 
         setenv("MELONX_IOS_EVENTWAIT_PROMOTION", enableEventWaitPromotion ? "1" : "0", 1)
