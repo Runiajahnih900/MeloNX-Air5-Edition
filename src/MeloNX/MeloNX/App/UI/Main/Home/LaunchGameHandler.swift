@@ -396,24 +396,18 @@ class LaunchGameHandler: ObservableObject {
             }
         }
 
-        // Garden/ORI repeatedly stall/crash during early Vulkan NV init on iOS.
-        // Force OpenGL backend for these titles as the most conservative renderer path.
+        // Garden/ORI on iOS are sensitive to HLE service behavior during early boot.
+        // Prefer stricter service emulation and avoid suppressing missing service faults.
         if isTheGardenPath || isOriAndTheBlindForest {
-            var rewrittenArgs: [String] = []
-            var idx = 0
-            while idx < config.additionalArgs.count {
-                let token = config.additionalArgs[idx]
-                if token.lowercased() == "--graphics-backend" {
-                    idx += 2
-                    continue
-                }
-                rewrittenArgs.append(token)
-                idx += 1
+            if config.ignoreMissingServices {
+                config.ignoreMissingServices = false
+                adjustments.append("ignoreMissingServices=false(Garden/ORI)")
             }
-            rewrittenArgs.append("--graphics-backend")
-            rewrittenArgs.append("OpenGl")
-            config.additionalArgs = rewrittenArgs
-            adjustments.append("graphicsBackend=OpenGl(Garden/ORI)")
+
+            if !config.macroHLE {
+                config.macroHLE = true
+                adjustments.append("macroHLE=true(Garden/ORI)")
+            }
         }
 
         if !adjustments.isEmpty {
