@@ -47,7 +47,8 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
             string.Equals(Environment.GetEnvironmentVariable("MELONX_IOS_NV_WAIT_BLOCKING"), "1", StringComparison.Ordinal);
         private static readonly bool IosNvWaitTimeoutPromotionEnabled =
             string.Equals(Environment.GetEnvironmentVariable("MELONX_IOS_NV_WAIT_TIMEOUT_PROMOTION"), "1", StringComparison.Ordinal);
-        private static readonly bool IosSosCrashResilience =
+        private static readonly bool IosCrashResilience =
+            string.Equals(Environment.GetEnvironmentVariable("MELONX_IOS_CRASH_RESILIENCE"), "1", StringComparison.Ordinal) ||
             string.Equals(Environment.GetEnvironmentVariable("MELONX_IOS_SOS_CRASH_RESILIENCE"), "1", StringComparison.Ordinal);
 
         public NvHostEvent(NvHostSyncpt syncpointManager, uint eventId, Horizon system)
@@ -200,10 +201,10 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
                             // longer timeout and retry loop. The 120ms default is not enough for the M1 GPU
                             // to finish processing during save data loading, causing premature syncpoint
                             // promotion that desynchronizes GPU/CPU state and deadlocks the game.
-                            TimeSpan effectiveTimeout = IosSosCrashResilience
+                            TimeSpan effectiveTimeout = IosCrashResilience
                                 ? IosCrashResilienceBlockingTimeout
                                 : IosBlockingCpuWaitTimeout;
-                            int maxRetries = IosSosCrashResilience ? IosCrashResilienceMaxRetries : 1;
+                            int maxRetries = IosCrashResilience ? IosCrashResilienceMaxRetries : 1;
 
                             bool blockingTimedOut = false;
                             uint blockingUpdatedSyncpointValue = currentSyncpointValue;
@@ -221,7 +222,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
                                     break;
                                 }
 
-                                if (IosSosCrashResilience && retry < maxRetries - 1)
+                                if (IosCrashResilience && retry < maxRetries - 1)
                                 {
                                     uint retryRemaining = Fence.Value > blockingUpdatedSyncpointValue
                                         ? Fence.Value - blockingUpdatedSyncpointValue
@@ -259,7 +260,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
 
                                     // When crash resilience is active, do an additional brief wait after promotion
                                     // to let in-flight GPU commands drain before the guest proceeds with CpuSet.
-                                    if (IosSosCrashResilience)
+                                    if (IosCrashResilience)
                                     {
                                         Thread.Sleep(10);
                                     }

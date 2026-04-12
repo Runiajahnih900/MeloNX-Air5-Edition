@@ -1071,9 +1071,10 @@ namespace Ryujinx.HLE.HOS.Kernel.Process
             MemoryManager = new KPageTable(KernelContext, CpuMemory, Context.AddressSpaceSize);
         }
 
-        private static readonly bool _iosSosCrashResilience =
+        private static readonly bool _iosCrashResilience =
             OperatingSystem.IsIOS() &&
-            string.Equals(Environment.GetEnvironmentVariable("MELONX_IOS_SOS_CRASH_RESILIENCE"), "1", StringComparison.Ordinal);
+            (string.Equals(Environment.GetEnvironmentVariable("MELONX_IOS_CRASH_RESILIENCE"), "1", StringComparison.Ordinal) ||
+             string.Equals(Environment.GetEnvironmentVariable("MELONX_IOS_SOS_CRASH_RESILIENCE"), "1", StringComparison.Ordinal));
 
         private bool InvalidAccessHandler(ulong va)
         {
@@ -1081,10 +1082,10 @@ namespace Ryujinx.HLE.HOS.Kernel.Process
             KernelStatic.GetCurrentThread()?.PrintGuestRegisterPrintout();
 
             // On iOS with crash resilience enabled, tolerate null-pointer and very low
-            // address accesses that occur during Story of Seasons save-load CpuSet operations.
+            // address accesses that may occur during fragile save/load transitions on some games.
             // Returning true tells the memory manager to provide zeroed memory instead of faulting,
             // which lets the game's error handling recover gracefully.
-            if (_iosSosCrashResilience && va < 0x10000)
+            if (_iosCrashResilience && va < 0x10000)
             {
                 Logger.Warning?.Print(LogClass.Cpu,
                     $"MELONX_IOS_INVALID_ACCESS_RESILIENCE: Tolerating invalid memory access at VA 0x{va:X16} on iOS. Returning zeroed memory.");
@@ -1104,7 +1105,7 @@ namespace Ryujinx.HLE.HOS.Kernel.Process
 
             // On iOS with crash resilience, if the guest jumps to address 0 (null function pointer),
             // stop the thread gracefully instead of throwing an exception that kills the app.
-            if (_iosSosCrashResilience && address == 0)
+            if (_iosCrashResilience && address == 0)
             {
                 Logger.Warning?.Print(LogClass.Cpu,
                     $"MELONX_IOS_NULL_EXEC_RESILIENCE: Guest executed at address 0x0 (null function pointer). Stopping thread instead of crashing.");

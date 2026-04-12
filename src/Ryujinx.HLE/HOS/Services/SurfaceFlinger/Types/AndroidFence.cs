@@ -40,9 +40,10 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             NvFences[FenceCount++] = fence;
         }
 
-        private static readonly bool _iosSosCrashResilience =
+        private static readonly bool _iosCrashResilience =
             OperatingSystem.IsIOS() &&
-            string.Equals(Environment.GetEnvironmentVariable("MELONX_IOS_SOS_CRASH_RESILIENCE"), "1", StringComparison.Ordinal);
+            (string.Equals(Environment.GetEnvironmentVariable("MELONX_IOS_CRASH_RESILIENCE"), "1", StringComparison.Ordinal) ||
+             string.Equals(Environment.GetEnvironmentVariable("MELONX_IOS_SOS_CRASH_RESILIENCE"), "1", StringComparison.Ordinal));
 
         public void WaitForever(GpuContext gpuContext)
         {
@@ -50,9 +51,9 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
             if (hasTimeout)
             {
-                if (_iosSosCrashResilience)
+                if (_iosCrashResilience)
                 {
-                    // Under crash resilience (Story of Seasons save-load), do NOT wait infinitely.
+                    // Under crash resilience, do NOT wait infinitely.
                     // The syncpoint promotion in NvHostEvent may have desynchronized the GPU state,
                     // so an infinite wait here would deadlock the render loop causing a white screen.
                     // Instead, try one more bounded wait, then proceed regardless.

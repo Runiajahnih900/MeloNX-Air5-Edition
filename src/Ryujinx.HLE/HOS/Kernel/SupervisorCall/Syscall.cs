@@ -1893,13 +1893,14 @@ namespace Ryujinx.HLE.HOS.Kernel.SupervisorCall
                     return;
                 }
 
-                // On iOS, when crash resilience is enabled for specific titles (e.g. Story of Seasons),
+                // On iOS, when crash resilience is enabled for unstable runtime transitions,
                 // absorb the SVC Break instead of killing the entire app. The guest thread that hit
-                // the assertion (typically during save-load CpuSet operations) is terminated, but the
+                // the assertion (typically during save/load edge-cases) is terminated, but the
                 // main game process is allowed to continue — the game will usually respawn the thread
                 // or recover on the next frame.
                 if (OperatingSystem.IsIOS() &&
-                    string.Equals(Environment.GetEnvironmentVariable("MELONX_IOS_SOS_CRASH_RESILIENCE"), "1", StringComparison.Ordinal))
+                    (string.Equals(Environment.GetEnvironmentVariable("MELONX_IOS_CRASH_RESILIENCE"), "1", StringComparison.Ordinal) ||
+                     string.Equals(Environment.GetEnvironmentVariable("MELONX_IOS_SOS_CRASH_RESILIENCE"), "1", StringComparison.Ordinal)))
                 {
                     Logger.Warning?.Print(LogClass.KernelSvc,
                         $"MELONX_IOS_BREAK_RESILIENCE: SVC Break absorbed on iOS (reason=0x{reason:X}). " +
